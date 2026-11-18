@@ -152,10 +152,12 @@ Resp api_cart_add(const Req& r) {
   auto body = json::parse(r.body, nullptr, false);
   if (body.is_discarded() || !body.is_object() || !body.contains("product_id") || !body["product_id"].is_number_integer())
     return json_resp(R"({"error":"bad_request"})", 400);
-  int pid = body["product_id"].get<int>();
+  const int64_t pid64 = body["product_id"].get<int64_t>();  // int64: get<int> would silently wrap 2^32+1 to 1
   if (body.contains("qty") && !body["qty"].is_number_integer()) return json_resp(R"({"error":"bad_request"})", 400);
-  int qty = body.value("qty", 1);
-  if (qty < 1 || qty > 99) return json_resp(R"({"error":"bad_request"})", 400);
+  const int64_t qty64 = body.value("qty", int64_t{1});
+  if (qty64 < 1 || qty64 > 99) return json_resp(R"({"error":"bad_request"})", 400);
+  if (pid64 < 1 || pid64 > 999999999) return not_found_json();
+  const int pid = static_cast<int>(pid64), qty = static_cast<int>(qty64);
   auto& db = thread_db();
   if (!db.product(pid)) return not_found_json();
   Resp out;
@@ -172,8 +174,9 @@ Resp api_cart_patch(const Req& r) {
   if (!item) return not_found_json();
   if (body.is_discarded() || !body.is_object() || !body.contains("qty") || !body["qty"].is_number_integer())
     return json_resp(R"({"error":"bad_request"})", 400);
-  int qty = body["qty"].get<int>();
-  if (qty < 0 || qty > 99) return json_resp(R"({"error":"bad_request"})", 400);
+  const int64_t qty64 = body["qty"].get<int64_t>();
+  if (qty64 < 0 || qty64 > 99) return json_resp(R"({"error":"bad_request"})", 400);
+  const int qty = static_cast<int>(qty64);
   auto sid = existing_session(r);
   auto& db = thread_db();
   if (sid.empty() || !db.cart_set_qty(sid, *item, qty)) return not_found_json();

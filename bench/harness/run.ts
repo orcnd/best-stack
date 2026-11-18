@@ -49,6 +49,18 @@ function shuffle<T>(xs: T[], seed: number): T[] {
 }
 
 const sh = (cmd: string, ...xs: string[]) => execFileSync(cmd, xs).toString().trim();
+const tryVersion = (cmd: string, ...xs: string[]) => { try { return sh(cmd, ...xs).split("\n")[0]; } catch { return null; } };
+
+/** Exact code and toolchains this run measured (spec §9.4). */
+function provenance() {
+  return {
+    git_commit: tryVersion("git", "-C", ROOT, "rev-parse", "HEAD"),
+    git_dirty: (tryVersion("git", "-C", ROOT, "status", "--porcelain") ?? "") !== "",
+    clang: tryVersion("clang", "--version"), rustc: tryVersion("rustc", "--version"), go: tryVersion("go", "version"),
+    zig: tryVersion("zig", "version"), node: process.version,
+    bun_ssr: tryVersion(join(ROOT, "frontends", "runtime", "node_modules", ".bin", "bun"), "--version"),
+  };
+}
 const log = (...m: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...m);
 
 async function main() {
@@ -58,7 +70,7 @@ async function main() {
   const combos = shuffle(o.backends.flatMap((b) => o.frontends.flatMap((f) => o.usecases.map((u) => ({ b, f, u })))), o.seed);
   const runId = db.startRun({
     seed: o.seed, order: combos, options: o,
-    versions: { ...JSON.parse(readFileSync(join(ROOT, "shared", "versions.json"), "utf8")), playwright: JSON.parse(readFileSync(join(ROOT, "bench", "node_modules", "playwright", "package.json"), "utf8")).version },
+    versions: { ...JSON.parse(readFileSync(join(ROOT, "shared", "versions.json"), "utf8")), provenance: provenance(), playwright: JSON.parse(readFileSync(join(ROOT, "bench", "node_modules", "playwright", "package.json"), "utf8")).version },
     machine: `${sh("sysctl", "-n", "machdep.cpu.brand_string")}, ${sh("sysctl", "-n", "hw.ncpu")} cpu, ${Math.round(Number(sh("sysctl", "-n", "hw.memsize")) / 2 ** 30)} GB`,
     os: `${sh("sw_vers", "-productName")} ${sh("sw_vers", "-productVersion")}`, notes: o.notes,
   });

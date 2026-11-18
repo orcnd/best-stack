@@ -41,6 +41,10 @@ class Db {
 
 /// Path used by thread_db(); set once at startup (bs::init).
 void set_db_path(const std::string& path);
+/// The calling thread's connection. Connections of exited threads go back to a shared pool and are
+/// reused, so thread-per-connection servers (Oat++) don't re-open SQLite and re-prepare per request.
 Db& thread_db();
+/// Number of SQLite connections opened by thread_db() so far.
+size_t thread_db_opens();
 
 }  // namespace bs

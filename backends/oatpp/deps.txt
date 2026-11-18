@@ -1,1 +1,4 @@
 oatpp
+sqlite
+inja
+nlohmann_json

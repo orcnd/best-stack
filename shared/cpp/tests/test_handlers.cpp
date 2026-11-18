@@ -265,3 +265,11 @@ TEST_CASE("handlers: conditional attributes keep their leading space") {
   CHECK(h.find("action=\"/htmx/catalog\" hx-get=") != std::string::npos);
   CHECK(h.find("\"x-") == std::string::npos);
 }
+
+TEST_CASE("handlers: invalid UTF-8 titles are rejected, JSON stays serializable") {
+  CHECK(call("POST", "/htmx/kanban/3/cards", {.body = "title=%FF%FE&column=backlog"}).status == 422);
+  CHECK(call("POST", "/htmx/kanban/3/cards", {.body = "title=%C3%A7ok+g%C3%BCzel&column=backlog"}).status == 303);  // "çok güzel"
+  CHECK(call("GET", "/api/kanban/boards/3").status == 200);
+  CHECK(call("POST", "/api/catalog/cart", {.body = R"({"product_id":4294967297,"qty":1})", .headers = {{"x-session-id", "intsession000001"}}}).status == 404);
+  CHECK(call("POST", "/api/catalog/cart", {.body = R"({"product_id":7,"qty":4294967297})", .headers = {{"x-session-id", "intsession000001"}}}).status == 400);
+}

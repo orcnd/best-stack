@@ -1,2 +1,5 @@
 uWebSockets
 uSockets
+sqlite
+inja
+nlohmann_json

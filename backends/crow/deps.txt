@@ -1,2 +1,5 @@
 crow
 asio
+sqlite
+inja
+nlohmann_json

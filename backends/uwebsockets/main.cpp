@@ -61,6 +61,16 @@ bs::Req read_req(uWS::HttpRequest* r, const std::vector<std::string>& names) {
   return q;
 }
 
+/// Never let an exception unwind into uSockets' C event loop (that terminates the process).
+bs::Resp safe_call(bs::Handler fn, const bs::Req& q) {
+  try {
+    return fn(q);
+  } catch (const std::exception& e) {
+    std::fprintf(stderr, "handler error: %s\n", e.what());
+    return bs::Resp{500, "text/plain", "internal error", {}};
+  }
+}
+
 template <class Res>
 void write(Res* res, const bs::Resp& out) {
   res->cork([&] {
@@ -83,7 +93,7 @@ void add_routes(uWS::App& app, int thread_index) {
       if (g_counts) g_counts[thread_index]++;
       auto q = std::make_shared<bs::Req>(read_req(req, names));
       if (method == "GET") {
-        write(res, fn(*q));
+        write(res, safe_call(fn, *q));
         return;
       }
       // Collect the body, then run the handler.
@@ -94,7 +104,7 @@ void add_routes(uWS::App& app, int thread_index) {
         if (!last || *aborted) return;
         if (bs::detail_get_header(q->headers, "content-type").rfind("application/x-www-form-urlencoded", 0) == 0)
           q->form = bs::parse_urlencoded(q->body);
-        write(res, fn(*q));
+        write(res, safe_call(fn, *q));
       });
     };
     if (method == "GET") app.get(pattern, handler);

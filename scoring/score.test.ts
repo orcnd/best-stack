@@ -82,6 +82,26 @@ test("changing weights changes the total", () => {
   assert.equal(Math.round(b.total), 100);
 });
 
+test("req/s counts only successful responses; >1% load errors makes a combo unranked", () => {
+  const { db, run } = fixture();
+  // b now answers as fast as a but half of its responses are errors
+  db.db.exec("UPDATE load_tests SET rps = 1000, errors = 500 WHERE combo_id = (SELECT combo_id FROM combos WHERE backend = 'b')");
+  const r = score(db, run, weights);
+  const b = r.combos.find((c) => c.backend === "b")!;
+  assert.equal(b.values.rps, 500);
+  assert.equal(b.ranked, false);
+  assert.ok(r.excluded.some((e) => e.backend === "b" && e.reason.includes("load-test error rate")));
+});
+
+test("failed interactions cost points: success rate metric and no free pass for missing values", () => {
+  const { db, run } = fixture();
+  db.db.exec("UPDATE interactions SET ok = 0, duration_ms = NULL WHERE combo_id = (SELECT combo_id FROM combos WHERE backend = 'b')");
+  const b = score(db, run, weights).combos.find((c) => c.backend === "b")!;
+  assert.equal(b.scores.interaction, 0);
+  assert.equal(b.scores.interaction_ok, 0);
+  assert.ok(b.categories.stability < 75);
+});
+
 test("scores are written to the scores table", () => {
   const { db, run } = fixture();
   score(db, run, weights, { write: true });

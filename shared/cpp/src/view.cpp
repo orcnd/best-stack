@@ -51,7 +51,29 @@ json page(const Req& r, const std::string& nav, const std::string& title, const 
   return {{"nav", nav}, {"title", title}, {"description", description}, {"cart_count", count}, {"fragment", false}};
 }
 
+// Well-formed UTF-8 (no overlongs, surrogates or code points > U+10FFFF).
+static bool valid_utf8(const std::string& s) {
+  size_t i = 0;
+  while (i < s.size()) {
+    unsigned char c = s[i];
+    int n = c < 0x80 ? 0 : (c >> 5) == 0x6 ? 1 : (c >> 4) == 0xE ? 2 : (c >> 3) == 0x1E ? 3 : -1;
+    if (n < 0 || i + n >= s.size()) return false;
+    uint32_t cp = n == 0 ? c : c & (0x3F >> n);
+    for (int k = 1; k <= n; k++) {
+      unsigned char cc = s[i + k];
+      if ((cc & 0xC0) != 0x80) return false;
+      cp = (cp << 6) | (cc & 0x3F);
+    }
+    if ((n == 1 && cp < 0x80) || (n == 2 && cp < 0x800) || (n == 3 && (cp < 0x10000 || cp > 0x10FFFF)) ||
+        (cp >= 0xD800 && cp <= 0xDFFF))
+      return false;
+    i += n + 1;
+  }
+  return true;
+}
+
 std::optional<std::string> valid_title(const std::string& raw) {
+  if (!valid_utf8(raw)) return std::nullopt;
   auto b = raw.find_first_not_of(" \t\r\n");
   if (b == std::string::npos) return std::nullopt;
   auto e = raw.find_last_not_of(" \t\r\n");

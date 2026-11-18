@@ -190,3 +190,10 @@ TEST_CASE("db: json_shapes") {
   CHECK(c["column"] == "todo");
   CHECK(c["labels"].is_array());
 }
+
+TEST_CASE("db: thread_db reuses connections of exited threads") {
+  bs::set_db_path(temp_db());
+  auto before = bs::thread_db_opens();
+  for (int i = 0; i < 5; i++) std::thread([] { bs::thread_db().categories(); }).join();
+  CHECK(bs::thread_db_opens() - before <= 1);
+}

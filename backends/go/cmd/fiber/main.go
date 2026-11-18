@@ -8,6 +8,7 @@ import (
 
 	"bestack/go/core"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
 func toFiber(pattern string) (string, []string) {
@@ -44,11 +45,9 @@ func write(c *fiber.Ctx, res core.Resp) error {
 	return c.Send(res.Body)
 }
 
-func main() {
-	cli := core.ParseCli()
-	runtime.GOMAXPROCS(cli.Threads)
-	core.Init(cli)
+func newApp() *fiber.App {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Use(recover.New()) // a core panic (e.g. DB error) becomes a 500 instead of killing the process
 	for _, rt := range core.Routes() {
 		fn := rt.Handler
 		path, names := toFiber(rt.Pattern)
@@ -63,6 +62,14 @@ func main() {
 	app.Use(func(c *fiber.Ctx) error {
 		return write(c, core.Resp{Status: 404, ContentType: "text/plain", Body: []byte("not found")})
 	})
+	return app
+}
+
+func main() {
+	cli := core.ParseCli()
+	runtime.GOMAXPROCS(cli.Threads)
+	core.Init(cli)
+	app := newApp()
 	fmt.Printf("bs-fiber listening on :%d (GOMAXPROCS=%d)\n", cli.Port, cli.Threads)
 	if err := app.Listen(fmt.Sprintf("0.0.0.0:%d", cli.Port)); err != nil {
 		panic(err)

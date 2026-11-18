@@ -147,6 +147,24 @@ describe("invalid params", () => {
   });
 });
 
+describe("hostile input does not poison shared state", () => {
+  test("invalid UTF-8 in a card title is rejected or sanitized; the board keeps working", async () => {
+    const r = await post("/htmx/kanban/4/cards", "title=%FF%FEbad&column=backlog");
+    expect([303, 422]).toContain(r.status);
+    const api = await get("/api/kanban/boards/4");
+    expect(api.status).toBe(200);
+    await api.json();
+    expect((await get("/healthz")).status).toBe(200);
+    // clean up whatever was stored
+    const b = await (await get("/api/kanban/boards/4")).json();
+    for (const c of b.columns.backlog) if (String(c.title).includes("bad")) await jsonReq("DELETE", `/api/kanban/cards/${c.id}`);
+  });
+  test("out-of-range integers in JSON are rejected", async () => {
+    expect((await jsonReq("POST", "/api/catalog/cart", { product_id: 4294967297, qty: 1 }, { "x-session-id": "contractsession2" })).status).toBe(404);
+    expect((await jsonReq("POST", "/api/catalog/cart", { product_id: 7, qty: 4294967297 }, { "x-session-id": "contractsession2" })).status).toBe(400);
+  });
+});
+
 describe("no app-level compression (run-2 fairness rule)", () => {
   test("pages, api and static are sent uncompressed even when the client accepts compression", async () => {
     const h = { "accept-encoding": "gzip, deflate, br, zstd" };

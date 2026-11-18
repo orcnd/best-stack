@@ -1,3 +1,6 @@
 drogon
 trantor
 jsoncpp
+sqlite
+inja
+nlohmann_json

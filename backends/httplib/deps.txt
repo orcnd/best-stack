@@ -1,1 +1,4 @@
 cpp-httplib
+sqlite
+inja
+nlohmann_json

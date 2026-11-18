@@ -3,6 +3,8 @@
 #include <sqlite3.h>
 
 #include <algorithm>
+#include <atomic>
+#include <mutex>
 #include <ctime>
 #include <stdexcept>
 #include <unordered_map>
@@ -378,12 +380,46 @@ Dashboard Db::dashboard(int range_days) {
   return d;
 }
 
-void set_db_path(const std::string& path) { g_db_path = path; }
+namespace {
+std::atomic<size_t> g_opens{0};
+std::mutex g_pool_mu;
+std::vector<std::unique_ptr<Db>> g_pool;  // connections released by exited threads
+
+/// Owns the thread's connection; on thread exit hands it back to the pool instead of closing it.
+struct ThreadConn {
+  std::unique_ptr<Db> db;
+  ~ThreadConn() {
+    if (!db) return;
+    std::lock_guard lk(g_pool_mu);
+    g_pool.push_back(std::move(db));
+  }
+};
+}  // namespace
+
+void set_db_path(const std::string& path) {
+  g_db_path = path;
+  std::lock_guard lk(g_pool_mu);
+  g_pool.clear();  // pooled connections point at the previous path
+}
+
+size_t thread_db_opens() { return g_opens.load(); }
 
 Db& thread_db() {
-  thread_local std::unique_ptr<Db> db;
-  if (!db) db = std::make_unique<Db>(g_db_path);
-  return *db;
+  thread_local ThreadConn tc;
+  if (!tc.db) {
+    {
+      std::lock_guard lk(g_pool_mu);
+      if (!g_pool.empty()) {
+        tc.db = std::move(g_pool.back());
+        g_pool.pop_back();
+      }
+    }
+    if (!tc.db) {
+      tc.db = std::make_unique<Db>(g_db_path);
+      g_opens++;
+    }
+  }
+  return *tc.db;
 }
 
 }  // namespace bs

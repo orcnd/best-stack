@@ -5,7 +5,10 @@
     "ninja": "1.13.1",
     "bun": "1.2.2",
     "node": "26.13.0",
-    "bun_runtime_for_ssr": "1.4.4 (frontends/runtime, npm package \"bun\"; system bun 1.2.2 is too old for vite 8)"
+    "bun_runtime_for_ssr": "1.4.4 (frontends/runtime, npm package \"bun\"; system bun 1.2.2 is too old for vite 8)",
+    "rustc": "1.96.1",
+    "go": "1.26.2",
+    "zig": "0.17.1 (homebrew)"
   },
   "cpp": {
     "nlohmann_json": "3.12.0",
@@ -20,7 +23,17 @@
     "crow": "1.3.5",
     "oatpp": "1.3.1",
     "uwebsockets": "20.81.0",
-    "usockets": "86097c4 (pinned by uWS 20.81.0)"
+    "usockets": "86097c4 (pinned by uWS 20.81.0)",
+    "axum": "0.8.9",
+    "actix-web": "4.20.0",
+    "tokio": "1.54.1",
+    "rusqlite": "0.42 (bundled SQLite 3.54.1)",
+    "r2d2_sqlite": "0.37",
+    "minijinja": "2.24.0",
+    "gofiber/fiber/v2": "2.52.16",
+    "mattn/go-sqlite3": "1.14.53 (bundled SQLite 3.54.1)",
+    "http.zig": "1bb71ff (master)",
+    "zap": "0.10.6 zig-master a0f67ff (vendored, patched for Zig 0.17)"
   },
   "tools": {
     "oha": "1.17.0",
@@ -38,5 +51,6 @@
     "@astrojs/node": "11.1.13",
     "@astrojs/preact": "6.1.6",
     "preact": "11.2.0"
-  }
+  },
+  "sqlite_everywhere": "3.54.1 with THREADSAFE/MEMSTATUS options aligned per language (see backends/*/NOTES.md, build scripts)"
 }

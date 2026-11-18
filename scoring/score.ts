@@ -80,8 +80,9 @@ function comboValues(db: ResultsDb, run: string, c: Raw, w: Weights, profiles: s
   }
   const concs = rows<{ concurrency: number }>(db, "SELECT DISTINCT concurrency FROM load_tests WHERE run_id = ? AND combo_id = ? AND target = 'page'", run, c.combo_id).map((r) => r.concurrency);
   const conc = concs.includes(w.load_concurrency) ? w.load_concurrency : Math.max(...concs, 0);
-  const lt = rows<{ rps: number; p95: number | null }>(db, "SELECT rps, p95 FROM load_tests WHERE run_id = ? AND combo_id = ? AND target = 'page' AND concurrency = ?", run, c.combo_id, conc)[0];
-  v.rps = lt?.rps ?? null;
+  const lt = rows<{ rps: number; p95: number | null; errors: number; total: number }>(db, "SELECT rps, p95, errors, total FROM load_tests WHERE run_id = ? AND combo_id = ? AND target = 'page' AND concurrency = ?", run, c.combo_id, conc)[0];
+  // only successful responses count: a backend failing fast must not look fast
+  v.rps = lt ? lt.rps * (lt.total > 0 ? 1 - lt.errors / lt.total : 1) : null;
   v.p95 = lt?.p95 ?? null;
   // peak memory during the page load test: per-role peak, summed (Bun combos have two processes).
   // phys_footprint when recorded (run 2+); ps RSS otherwise (double-counts mmap'd SQLite pages).
@@ -89,9 +90,10 @@ function comboValues(db: ResultsDb, run: string, c: Raw, w: Weights, profiles: s
     .reduce((a, r) => a + (r.peak ?? 0), 0) || null;
   v.cold_start = rows<{ ms: number }>(db, "SELECT cold_start_ms AS ms FROM starts WHERE run_id = ? AND combo_id = ?", run, c.combo_id).reduce((a, r) => a + r.ms, 0) || null;
   const errs = rows<{ e: number; t: number }>(db, "SELECT coalesce(sum(errors), 0) AS e, coalesce(sum(total), 0) AS t FROM load_tests WHERE run_id = ? AND combo_id = ?", run, c.combo_id)[0];
-  const ints = rows<{ bad: number; n: number }>(db, "SELECT coalesce(sum(1 - ok), 0) AS bad, count(*) AS n FROM interactions WHERE run_id = ? AND combo_id = ?", run, c.combo_id)[0];
-  const denom = errs.t + ints.n;
-  v.error_rate = denom ? (errs.e + ints.bad) / denom : 0;
+  v.error_rate = errs.t ? errs.e / errs.t : 0;
+  // share of flow iterations (all profiles) that completed every step
+  const iters = rows<{ bad: number }>(db, "SELECT sum(1 - ok) AS bad FROM interactions WHERE run_id = ? AND combo_id = ? GROUP BY profile, iter", run, c.combo_id);
+  v.interaction_ok_rate = iters.length ? iters.filter((r) => !r.bad).length / iters.length : null;
   const lcpRows = rows<{ page: string; lcp: number | null; fcp: number | null }>(db, "SELECT page, lcp, fcp FROM page_loads WHERE run_id = ? AND combo_id = ? AND profile = 'desktop'", run, c.combo_id);
   const cvs = [...new Set(lcpRows.map((r) => r.page))].map((p) => {
     const xs = lcpRows.filter((r) => r.page === p).map((r) => r.lcp ?? r.fcp ?? NaN).filter(finite);
@@ -123,8 +125,9 @@ export function score(db: ResultsDb, run: string, w: Weights, opts: { write?: bo
     `SELECT c.combo_id, c.backend, c.frontend, c.usecase, p.parity_ok, p.details_json AS details
      FROM combos c JOIN parity p ON p.combo_id = c.combo_id AND p.run_id = ? ORDER BY c.usecase, c.backend, c.frontend`, run);
   const profiles = rows<{ profile: string }>(db, "SELECT DISTINCT profile FROM page_loads WHERE run_id = ?", run).map((r) => r.profile);
-  const ranked = (c: Raw) => c.parity_ok === 1;
   const vals = new Map(combos.map((c) => [c.combo_id, comboValues(db, run, c, w, profiles)]));
+  const MAX_LOAD_ERROR = 0.01;
+  const ranked = (c: Raw) => c.parity_ok === 1 && (vals.get(c.combo_id)!.error_rate ?? 0) <= MAX_LOAD_ERROR;
   const beB = componentScores(db, run, "backend", [...new Set(combos.filter(ranked).map((c) => c.backend))]);
   const feB = componentScores(db, run, "frontend", [...new Set(combos.filter(ranked).map((c) => c.frontend))]);
 
@@ -150,6 +153,9 @@ export function score(db: ResultsDb, run: string, w: Weights, opts: { write?: bo
       s.cold_start = low("cold_start", v.cold_start);
       s.error_rate = errorScore(v.error_rate ?? 0);
       s.variance = finite(v.variance_cv) ? cvScore(v.variance_cv) : null;
+      s.interaction_ok = finite(v.interaction_ok_rate) ? 100 * v.interaction_ok_rate : null;
+      // a missing measurement must not raise the score: count it as 0
+      for (const k of CATEGORIES) for (const m of Object.keys(w.metrics[k])) if (!finite(s[m])) s[m] = 0;
       const cats = Object.fromEntries(CATEGORIES.map((k) => [k, weightedMean(s, w.metrics[k])])) as Record<Category, number>;
       const tw = CATEGORIES.reduce((a, k) => a + w.categories[k], 0);
       const total = CATEGORIES.reduce((a, k) => a + cats[k] * w.categories[k], 0) / tw;
@@ -169,7 +175,10 @@ export function score(db: ResultsDb, run: string, w: Weights, opts: { write?: bo
 
   const result: Result = {
     run_id: run, combos: out,
-    excluded: combos.filter((c) => !ranked(c)).map((c) => ({ backend: c.backend, frontend: c.frontend, usecase: c.usecase, reason: c.details ?? "" })),
+    excluded: combos.filter((c) => !ranked(c)).map((c) => ({
+      backend: c.backend, frontend: c.frontend, usecase: c.usecase,
+      reason: c.parity_ok !== 1 ? c.details ?? "parity failed" : `load-test error rate ${(100 * (vals.get(c.combo_id)!.error_rate ?? 0)).toFixed(1)}% > ${100 * MAX_LOAD_ERROR}%`,
+    })),
     overall, backends: avgBy("backend"), frontends: avgBy("frontend"),
   };
 

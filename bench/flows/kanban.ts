@@ -1,6 +1,6 @@
 import type { Page } from "playwright";
 import { API } from "./targets.ts";
-import { type StepFn, TIMEOUT } from "./types.ts";
+import { clientSide, instrument, settle, type StepFn } from "./types.ts";
 
 /** Visible card whose title input currently has value `title`, optionally inside a column. */
 const findCard = (page: Page, title: string, column?: string) =>
@@ -17,7 +17,7 @@ const findCard = (page: Page, title: string, column?: string) =>
       return false;
     },
     [title, column ?? ""],
-    { timeout: TIMEOUT },
+    {},
   );
 
 async function cardHandle(page: Page, title: string) {
@@ -49,7 +49,7 @@ async function clickInCard(page: Page, title: string, testid: string) {
 }
 
 async function apiHasTitle(title: string, present: boolean) {
-  const deadline = Date.now() + TIMEOUT;
+  const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     const b = await (await fetch(`${API}/api/kanban/boards/1`)).json();
     const found = Object.values(b.columns as Record<string, { title: string }[]>).flat().some((c) => c.title === title);
@@ -63,39 +63,40 @@ const visibleCardCount = (page: Page) =>
   page.evaluate(() => [...document.querySelectorAll('[data-testid="card"]')].filter((e) => (e as HTMLElement).offsetParent !== null).length);
 
 export async function run(page: Page, root: string, step: StepFn) {
+  await instrument(page);
   const tag = Math.random().toString(36).slice(2, 8);
   const title = `Bench card ${tag}`;
   const renamed = `Bench renamed ${tag}`;
   await step("load_board", async () => {
     await page.goto(`${root}/kanban/1`);
-    await page.waitForFunction(() => document.querySelectorAll('[data-testid="card"]').length >= 100, null, { timeout: TIMEOUT });
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid="card"]').length >= 100);
+    await settle(page);
   });
   const startCount = await visibleCardCount(page);
-  await step("add_card", async () => {
+  await step("add_card", () => clientSide(page, async () => {
     await page.locator('[data-testid="new-card-input"]:visible').fill(title);
     await page.locator('[data-testid="new-card-submit"]:visible').click();
     await findCard(page, title, "backlog");
-  });
-  await step("edit_title", async () => {
+  }));
+  await step("edit_title", () => clientSide(page, async () => {
     const card = await cardHandle(page, title);
     const input = await card.$('[data-testid="card-title"]');
     await input!.fill(renamed);
     await (await card.$('[data-testid="card-edit"]'))!.click();
     await apiHasTitle(renamed, true);
     await findCard(page, renamed, "backlog");
-  });
-  await step("move_right", async () => {
+  }));
+  await step("move_right", () => clientSide(page, async () => {
     await clickInCard(page, renamed, "card-move-right");
     await findCard(page, renamed, "todo");
-  });
-  await step("delete", async () => {
+  }));
+  await step("delete", () => clientSide(page, async () => {
     await clickInCard(page, renamed, "card-delete");
     await page.waitForFunction(
       (t) => ![...document.querySelectorAll<HTMLInputElement>('[data-testid="card-title"]')].some((i) => i.offsetParent !== null && i.value === t),
       renamed,
-      { timeout: TIMEOUT },
     );
-  });
+  }));
   const endCount = await visibleCardCount(page);
   if (endCount !== startCount) throw new Error(`card count changed: ${startCount} -> ${endCount}`);
 }
