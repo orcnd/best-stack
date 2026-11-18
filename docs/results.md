@@ -6,7 +6,7 @@ Run 1 (yalnız C++, düzeltilmiş ölçüm sorunlarıyla): [results-run1.md](res
 
 ## Özet
 
-| Dil | Ortalama toplam (45 / 30 / 30 / 30 kombinasyon) | En iyi kombinasyon |
+| Dil | Ortalama toplam (Zig 30 · C++ 75 · Rust 30 · Go 30 kombinasyon) | En iyi kombinasyon |
 |---|---|---|
 | Zig | 65.4 | 88.6 (http.zig × vanilla × catalog) |
 | C++ | 61.4 | 85.6 |
