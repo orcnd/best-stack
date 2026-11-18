@@ -40,6 +40,10 @@ struct Route {
 /// Single source of truth for all routes. Backends register these natively.
 const std::vector<Route>& routes();
 
+/// Parses --port --db --root --threads (defaults: 18080, data/app.sqlite, ".", 8).
+struct Cli { int port = 18080; Config cfg; };
+Cli parse_cli(int argc, char** argv);
+
 /// Must be called once before serving: sets DB path, loads templates.
 void init(const Config& cfg);
 

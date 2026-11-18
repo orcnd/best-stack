@@ -128,9 +128,24 @@ std::optional<Resp> serve_static(const std::string& rel_path) {
   return *r;
 }
 
+Cli parse_cli(int argc, char** argv) {
+  Cli c;
+  c.cfg.root = ".";
+  c.cfg.db_path = "data/app.sqlite";
+  for (int i = 1; i + 1 < argc; i += 2) {
+    std::string k = argv[i], v = argv[i + 1];
+    if (k == "--port") c.port = std::stoi(v);
+    else if (k == "--db") c.cfg.db_path = v;
+    else if (k == "--root") c.cfg.root = v;
+    else if (k == "--threads") c.cfg.threads = std::stoi(v);
+  }
+  return c;
+}
+
 void init(const Config& cfg) {
   set_db_path(cfg.db_path);
-  g_static_dir = fs::path(cfg.root) / "shared" / "static";
+  g_static_dir = fs::weakly_canonical(fs::absolute(fs::path(cfg.root) / "shared" / "static"));
+  { std::unique_lock lk(g_static.mu); g_static.files.clear(); }
   load_templates(cfg.root);
 }
 

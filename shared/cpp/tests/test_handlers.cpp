@@ -245,3 +245,14 @@ TEST_CASE("handlers: match") {
   CHECK_FALSE(bs::match("/{fe}/catalog", "//catalog", p));
   CHECK(bs::url_decode("a+b%C4%9F") == "a bğ");
 }
+
+TEST_CASE("handlers: static works with a relative root") {
+  ensure_init();
+  auto cwd = fs::current_path();
+  fs::current_path(BS_ROOT);
+  bs::init({".", (fs::temp_directory_path() / "bs-tests" / ("handlers-" + std::to_string(::getpid()) + ".sqlite")).string(), 1});
+  auto r = bs::serve_static("img/cat-2.svg");
+  fs::current_path(cwd);
+  bs::init({BS_ROOT, (fs::temp_directory_path() / "bs-tests" / ("handlers-" + std::to_string(::getpid()) + ".sqlite")).string(), 1});
+  CHECK(r.has_value());
+}
