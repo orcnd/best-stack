@@ -1,0 +1,8 @@
+build/
+data/*.sqlite*
+results/*.sqlite*
+node_modules/
+.svelte-kit/
+dist/
+.superpowers/
+.DS_Store
