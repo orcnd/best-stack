@@ -1,0 +1,18 @@
+{% include "layout_top.html" %}
+<div{% if fe == "alpine" %} x-data="kanban({{ board.id }})"{% endif %}>
+<div class="board-head">
+  <h1>{{ board.name }}</h1>
+  <nav class="board-tabs" data-testid="board-select">
+{% for t in boards %}
+    <a href="{{ base }}/kanban/{{ t.id }}"{% if t.active %} class="active"{% endif %}>{{ t.name }}</a>
+{% endfor %}
+  </nav>
+</div>
+<form class="new-card" method="post" action="{{ base }}/kanban/{{ board.id }}/cards"{% if fe == "htmx" %} hx-post="{{ base }}/kanban/{{ board.id }}/cards" hx-target="#board" hx-swap="outerHTML" hx-on::after-request="if (event.detail.successful) this.reset()"{% endif %}{% if fe == "alpine" %} @submit.prevent="create($event.target)"{% endif %}>
+  <input type="text" name="title" maxlength="200" required placeholder="Yeni kart başlığı" data-testid="new-card-input">
+  <input type="hidden" name="column" value="backlog">
+  <button type="submit" data-testid="new-card-submit">Kart ekle</button>
+</form>
+{% include "board.html" %}
+</div>
+{% include "layout_bottom.html" %}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · Best Stack</title>
+<meta name="description" content="{{ description }}">
+<link rel="stylesheet" href="/static/app.css">
+{% if fe == "htmx" %}
+<script src="/static/vendor/htmx.min.js" defer></script>
+<script src="/static/js/htmx/htmx-config.js" defer></script>
+{% endif %}
+{% if fe == "alpine" %}
+<script src="/static/js/alpine/{{ nav }}.js" defer></script>
+<script src="/static/vendor/alpine.min.js" defer></script>
+{% endif %}
+{% if fe == "vanilla" %}
+<script type="module" src="/static/js/vanilla/{{ nav }}.js"></script>
+{% endif %}
+</head>
+<body>
+<header class="site-header" data-testid="site-header">
+  <a class="brand" href="{{ base }}/catalog">Best Stack</a>
+  <nav class="main-nav">
+    <a data-testid="nav-catalog" href="{{ base }}/catalog"{% if nav == "catalog" %} class="active"{% endif %}>Katalog</a>
+    <a data-testid="nav-kanban" href="{{ base }}/kanban/1"{% if nav == "kanban" %} class="active"{% endif %}>Kanban</a>
+    <a data-testid="nav-dashboard" href="{{ base }}/dashboard"{% if nav == "dashboard" %} class="active"{% endif %}>Dashboard</a>
+  </nav>
+  <a class="cart-link" href="{{ base }}/catalog/cart">Sepet {% include "badge.html" %}</a>
+</header>
+<main class="container">
