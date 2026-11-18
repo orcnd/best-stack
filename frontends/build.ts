@@ -8,7 +8,9 @@ const targets: Record<string, string[]> = {
   htmx: ["htmx-config"],
 };
 
+const only = process.argv[2];
 for (const [fe, names] of Object.entries(targets)) {
+  if (only && only !== fe) continue;
   const res = await Bun.build({
     entrypoints: names.map((n) => join(root, "frontends", fe, "src", `${n}.ts`)),
     outdir: join(root, "shared", "static", "js", fe),

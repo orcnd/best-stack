@@ -33,9 +33,19 @@ FetchContent_Declare(doctest
   GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(nlohmann_json inja doctest)
 
-# Homebrew sqlite (newer than the macOS SDK one)
-find_path(SQLITE3_INCLUDE_DIR sqlite3.h HINTS /opt/homebrew/opt/sqlite/include REQUIRED NO_DEFAULT_PATH)
-find_library(SQLITE3_LIBRARY sqlite3 HINTS /opt/homebrew/opt/sqlite/lib REQUIRED NO_DEFAULT_PATH)
+# SQLite built from the pinned amalgamation. Homebrew's build has ENABLE_MEMORY_MANAGEMENT, which puts
+# every connection's page cache behind one global mutex (concurrent readers serialized: 21 → 10 req/s
+# going from 1 to 8 clients on /api/dashboard). Options follow sqlite.org's recommended set.
+FetchContent_Declare(sqlite_amalgamation
+  URL https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip)
+FetchContent_MakeAvailable(sqlite_amalgamation)
+add_library(sqlite3_static STATIC ${sqlite_amalgamation_SOURCE_DIR}/sqlite3.c)
+target_include_directories(sqlite3_static PUBLIC ${sqlite_amalgamation_SOURCE_DIR})
+target_compile_definitions(sqlite3_static PUBLIC
+  SQLITE_THREADSAFE=2 SQLITE_DEFAULT_MEMSTATUS=0 SQLITE_DEFAULT_WAL_SYNCHRONOUS=1 SQLITE_DQS=0
+  SQLITE_LIKE_DOESNT_MATCH_BLOBS SQLITE_OMIT_DEPRECATED SQLITE_OMIT_SHARED_CACHE SQLITE_USE_ALLOCA)
+set(SQLITE3_INCLUDE_DIR ${sqlite_amalgamation_SOURCE_DIR})
+set(SQLITE3_LIBRARY sqlite3_static)
 
 file(GLOB BS_CORE_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/shared/cpp/src/*.cpp)
 add_library(bs_core STATIC ${BS_CORE_SOURCES})

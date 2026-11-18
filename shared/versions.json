@@ -11,7 +11,7 @@
     "nlohmann_json": "3.12.0",
     "inja": "3.5.0",
     "doctest": "2.4.12",
-    "sqlite": "3.54.1 (homebrew)"
+    "sqlite": "3.54.1 (amalgamation, built in-tree: THREADSAFE=2, DEFAULT_MEMSTATUS=0, no ENABLE_MEMORY_MANAGEMENT)"
   },
   "backends": {
     "drogon": "1.9.14 (homebrew)",
@@ -24,7 +24,8 @@
   },
   "tools": {
     "oha": "1.17.0",
-    "tokei": "15.0.0"
+    "tokei": "15.0.0",
+    "playwright": "1.65.1"
   },
   "frontend": {
     "htmx": "2.0.4",

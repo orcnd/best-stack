@@ -22,13 +22,13 @@ function compare(a: PNG, shot: Buffer): { ratio: number; note?: string; diff?: P
   return { ratio, diff: ratio >= THRESHOLD ? diff : undefined };
 }
 
-export async function visual(fe: Frontend, update = false) {
+export async function visual(fe: Frontend, update = false, usecase?: string) {
   mkdirSync(REF, { recursive: true });
   mkdirSync(join(OUT, fe), { recursive: true });
   const browser = await chromium.launch();
   const pages: { page: string; ratio: number; note?: string }[] = [];
   try {
-    for (const vp of VISUAL_PAGES) {
+    for (const vp of VISUAL_PAGES.filter((p) => !usecase || p.usecase === usecase)) {
       const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
       const page = await ctx.newPage();
       await page.goto(frontendRoot(fe) + vp.path, { waitUntil: "networkidle" });

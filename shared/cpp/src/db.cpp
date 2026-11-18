@@ -141,11 +141,24 @@ struct Db::Impl {
   }
 };
 
+namespace {
+// Process-wide SQLite settings; must run before the first connection is opened.
+// MEMSTATUS=0 removes a global mutex taken on every allocation (it serialized concurrent readers).
+const bool g_sqlite_configured = [] {
+  sqlite3_config(SQLITE_CONFIG_MEMSTATUS, 0);
+  return true;
+}();
+}  // namespace
+
 Db::Db(const std::string& path) : impl_(std::make_unique<Impl>()) {
+  (void)g_sqlite_configured;
   if (sqlite3_open_v2(path.c_str(), &impl_->db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nullptr) != SQLITE_OK)
     throw std::runtime_error("cannot open db: " + path);
   sqlite3_busy_timeout(impl_->db, 5000);
-  impl_->exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
+  // temp_store=MEMORY: GROUP BY / COUNT(DISTINCT) temp B-trees stay in RAM instead of temp files.
+  impl_->exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA temp_store = MEMORY;"
+              // mmap: readers share OS pages instead of pread-copying into each connection's cache.
+              " PRAGMA mmap_size = 268435456;");
 }
 
 Db::~Db() {
