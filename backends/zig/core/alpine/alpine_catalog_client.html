@@ -1,0 +1,28 @@
+<template x-if="ready"><div>
+  <p class="result-count" x-text="num(total) + ' ürün'"></p>
+  <template x-if="items.length > 0">
+  <div class="grid" data-testid="product-grid">
+    <template x-for="p in items" :key="p.id">
+    <article class="product-card" data-testid="product-card">
+      <a class="thumb" :href="'/alpine/catalog/p/' + p.id"><img :src="p.image" :alt="p.name" width="320" height="240"></a>
+      <h2 class="product-name" data-testid="product-name"><a :href="'/alpine/catalog/p/' + p.id" x-text="p.name"></a></h2>
+      <p class="product-category" x-text="p.category"></p>
+      <p class="product-price" data-testid="product-price" x-text="money(p.price_cents)"></p>
+      <form class="add-form" method="post" action="/alpine/catalog/cart" @submit.prevent="add(p.id)">
+        <input type="hidden" name="product_id" :value="p.id">
+        <input type="hidden" name="qty" value="1">
+        <button type="submit" data-testid="add-to-cart">Sepete ekle</button>
+      </form>
+    </article>
+    </template>
+  </div>
+  </template>
+  <template x-if="items.length === 0"><p class="empty" data-testid="empty-state">Sonuç bulunamadı.</p></template>
+  <nav class="pagination" data-testid="pagination">
+    <template x-if="page > 1"><a data-testid="page-prev" :href="hrefFor(page - 1)" @click.prevent="go(page - 1)">‹ Önceki</a></template>
+    <template x-if="page <= 1"><span class="disabled">‹ Önceki</span></template>
+    <span class="page-info" x-text="'Sayfa ' + page + ' / ' + pages"></span>
+    <template x-if="page < pages"><a data-testid="page-next" :href="hrefFor(page + 1)" @click.prevent="go(page + 1)">Sonraki ›</a></template>
+    <template x-if="page >= pages"><span class="disabled">Sonraki ›</span></template>
+  </nav>
+</div></template>

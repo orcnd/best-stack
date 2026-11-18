@@ -1,0 +1,28 @@
+<template x-if="ready">
+<div class="board">
+  <template x-for="col in columns" :key="col.key">
+  <section class="column" :data-testid="'column-' + col.key">
+    <h2><span x-text="col.label"></span> <span class="count" x-text="col.cards.length"></span></h2>
+    <template x-if="col.cards.length > 0">
+    <ul class="cards">
+      <template x-for="c in col.cards" :key="c.id">
+      <li class="card" data-testid="card" :data-card-id="c.id">
+        <form class="title-form" method="post" :action="'/alpine/kanban/cards/' + c.id" @submit.prevent="update(c.id, { title: $event.target.elements.title.value })">
+          <input class="card-title" type="text" name="title" :value="c.title" maxlength="200" data-testid="card-title">
+          <button type="submit" class="small" data-testid="card-edit">Kaydet</button>
+        </form>
+        <p class="card-meta"><span class="labels" x-text="c.labels.join(', ')"></span> <span class="assignee" x-text="c.assignee"></span> <span class="due" x-text="c.due_date"></span></p>
+        <div class="card-actions">
+          <form method="post" :action="'/alpine/kanban/cards/' + c.id" @submit.prevent="update(c.id, { move: 'left' })"><input type="hidden" name="move" value="left"><button type="submit" class="small" data-testid="card-move-left" :disabled="col.key === 'backlog'">←</button></form>
+          <form method="post" :action="'/alpine/kanban/cards/' + c.id" @submit.prevent="update(c.id, { move: 'right' })"><input type="hidden" name="move" value="right"><button type="submit" class="small" data-testid="card-move-right" :disabled="col.key === 'done'">→</button></form>
+          <form method="post" :action="'/alpine/kanban/cards/' + c.id" @submit.prevent="remove(c.id)"><input type="hidden" name="delete" value="1"><button type="submit" class="small danger" data-testid="card-delete">Sil</button></form>
+        </div>
+      </li>
+      </template>
+    </ul>
+    </template>
+    <template x-if="col.cards.length === 0"><p class="empty" data-testid="empty-state">Kart yok.</p></template>
+  </section>
+  </template>
+</div>
+</template>

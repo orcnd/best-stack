@@ -1,0 +1,24 @@
+<template x-if="ready"><div>
+  <template x-if="cart.items.length > 0"><div>
+  <table class="cart-table" data-testid="cart-table">
+    <thead><tr><th>Ürün</th><th>Fiyat</th><th>Adet</th><th>Tutar</th><th></th></tr></thead>
+    <tbody>
+      <template x-for="it in cart.items" :key="it.id">
+      <tr data-testid="cart-row">
+        <td><a :href="'/alpine/catalog/p/' + it.product.id" x-text="it.product.name"></a></td>
+        <td x-text="money(it.product.price_cents)"></td>
+        <td><form class="qty-form" method="post" :action="'/alpine/catalog/cart/' + it.id" @submit.prevent="setQty(it.id, $event.target.elements.qty.value)">
+              <input type="number" name="qty" min="0" max="99" :value="it.qty" data-testid="cart-qty">
+              <button type="submit" data-testid="cart-update">Güncelle</button></form></td>
+        <td x-text="money(it.qty * it.product.price_cents)"></td>
+        <td><form method="post" :action="'/alpine/catalog/cart/' + it.id" @submit.prevent="setQty(it.id, 0)">
+              <input type="hidden" name="qty" value="0">
+              <button type="submit" data-testid="cart-remove">Kaldır</button></form></td>
+      </tr>
+      </template>
+    </tbody>
+  </table>
+  <p class="cart-total">Toplam: <strong data-testid="cart-total" x-text="money(cart.total_cents)"></strong></p>
+  </div></template>
+  <template x-if="cart.items.length === 0"><p class="empty" data-testid="empty-state">Sepetiniz boş.</p></template>
+</div></template>

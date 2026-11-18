@@ -1,0 +1,18 @@
+.{
+    .name = .zig,
+    .version = "0.0.1",
+    .dependencies = .{
+        .httpz = .{
+            .url = "https://github.com/karlseguin/http.zig/archive/1bb71ff128a044b1645df91046473c38abbf965c.tar.gz",
+            .hash = "httpz-0.0.0-PNVzrFNMCQBySpfunggKlQQoD_FvF3yADlqg3xfbdX8p",
+        },
+        .zap = .{ .path = "vendor/zap" },
+        .sqlite = .{
+            .url = "https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip",
+            .hash = "N-V-__8AAETTsABEodUZZFAyfdAm9hEyqBXuLw9pRSO0vFh9",
+        },
+    },
+    .minimum_zig_version = "0.17.1",
+    .paths = .{""},
+    .fingerprint = 0xc1ce1081d23a4d27,
+}
