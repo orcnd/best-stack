@@ -55,5 +55,9 @@ bool match(const std::string& pattern, const std::string& path, std::map<std::st
 std::map<std::string, std::string> parse_urlencoded(const std::string& s);
 std::map<std::string, std::string> parse_cookies(const std::string& header);
 std::string url_decode(const std::string& s);
+inline std::string detail_get_header(const std::map<std::string, std::string>& h, const std::string& k) {
+  auto it = h.find(k);
+  return it == h.end() ? std::string() : it->second;
+}
 
 }  // namespace bs
