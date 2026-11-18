@@ -1,7 +1,7 @@
 # Best Stack
 
-Measuring the best web stack instead of arguing about it: **5 C++ backends × 5 frontends × 3 use
-cases = 75 combinations**, all backed by SQLite, all rendering the *same* pages with the *same*
+Measuring the best web stack instead of arguing about it: **11 backends (C++, Rust, Go, Zig) ×
+5 frontends × 3 use cases = 165 combinations**, all backed by SQLite, all rendering the *same* pages with the *same*
 behaviour, measured from the user's point of view in a real browser, with every raw sample kept in
 a SQLite database so the numbers can be re-interpreted later.
 
@@ -9,10 +9,12 @@ a SQLite database so the numbers can be re-interpreted later.
 
 | Backends (C++20) | Frontends | Use cases |
 |---|---|---|
-| Drogon · Crow · Oat++ · uWebSockets · cpp-httplib | **HTML rendered by C++** (inja): htmx · Alpine.js · Vanilla TS<br>**SSR on Bun**, data from the C++ JSON API: SvelteKit · Astro + Preact islands | Product catalog (read/SEO heavy) · Kanban (write/interaction heavy) · Analytics dashboard (heavy SQL) |
+| **C++20**: Drogon · Crow · Oat++ · uWebSockets · cpp-httplib<br>**Rust**: Axum · Actix-web<br>**Go**: net/http · Fiber<br>**Zig 0.17**: http.zig · zap | **HTML rendered by C++** (inja): htmx · Alpine.js · Vanilla TS<br>**SSR on Bun**, data from the C++ JSON API: SvelteKit · Astro + Preact islands | Product catalog (read/SEO heavy) · Kanban (write/interaction heavy) · Analytics dashboard (heavy SQL) |
 
-Fairness rules: one shared C++ core (`shared/cpp`: SQLite data layer, templates, handlers) — backends
-differ only in their HTTP layer, routing and concurrency model. One stylesheet, one markup spec
+Fairness rules: one core per language (`shared/cpp`, `backends/rust/core`, `backends/go/core`,
+`backends/zig/core`: SQLite data layer, HTML, handlers) — within a language backends differ only in
+their HTTP layer, routing and concurrency model; across languages every backend passes the same API
+contract and uses SQLite 3.54.1 with the same options and pragmas. One stylesheet, one markup spec
 ([`shared/markup-spec.md`](shared/markup-spec.md)), deterministic seed data. A combination is only
 ranked if it passes the functional flow, a pixel diff against the reference (< 0.5 %) and a JS-off
 SEO check.
@@ -22,7 +24,8 @@ SEO check.
 ```
 shared/          schema.sql, seed/ (deterministic data), static/ (css, images, vendored htmx/alpine),
                  cpp/ (bs_core: data layer, inja templates, handlers, chart), markup-spec.md, versions.json
-backends/<name>/ main.cpp (HTTP adapter only), NOTES.md where the framework needed a decision
+backends/<name>/ C++ adapters (main.cpp); backends/rust|go|zig/ language core + two adapters each;
+                 NOTES.md where a framework needed a decision
 frontends/       vanilla|alpine|htmx/src (client code for C++-rendered pages), sveltekit/, astro/,
                  shared/ (format, chart, API types), runtime/ (pinned Bun used for SSR servers)
 bench/           contract/ (API contract every backend passes), flows/ (Playwright user flows),
@@ -33,12 +36,13 @@ docs/superpowers design spec and implementation plan
 
 ## Running it
 
-Requirements (macOS, Homebrew): `brew install cmake ninja oha asio drogon tokei`, Node ≥ 26, Bun.
+Requirements (macOS, Homebrew): `brew install cmake ninja oha asio drogon tokei zig`, Rust, Go, Node ≥ 26, Bun.
 
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build && ctest --test-dir build
 bun shared/seed/seed.ts                      # data/pristine.sqlite
 bun frontends/build.ts                       # client JS for htmx/alpine/vanilla
+backends/rust/build.sh && backends/go/build.sh && backends/zig/build.sh
 (cd frontends/runtime && npm ci)             # pinned Bun for the SSR servers
 (cd frontends/sveltekit && ../runtime/node_modules/.bin/bun install && ../runtime/node_modules/.bin/bun run build)
 (cd frontends/astro && ../runtime/node_modules/.bin/bun install && ../runtime/node_modules/.bin/bun run build)
@@ -67,4 +71,5 @@ dx_components` (see `bench/harness/schema.sql`). Scoring never mutates them; cha
 
 ## Results
 
-See [`docs/results.md`](docs/results.md).
+See [`docs/results.md`](docs/results.md) (run 2, 165 combinations) and
+[`docs/results-run1.md`](docs/results-run1.md) (run 1, C++ only, with the measurement issues that run 2 fixed).
