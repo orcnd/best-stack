@@ -19,7 +19,7 @@ import type { Profile } from "./profiles.ts";
 import { ResultsDb } from "./resultsdb.ts";
 import { Sampler } from "./sampler.ts";
 
-export const BACKENDS = ["drogon", "crow", "oatpp", "uwebsockets", "httplib"] as const;
+export const BACKENDS = ["drogon", "crow", "oatpp", "uwebsockets", "httplib", "axum", "actix", "gohttp", "fiber", "httpzig", "zap"] as const;
 export const PAGES: Record<string, string[]> = { catalog: ["/catalog", "/catalog/p/1", "/catalog/cart"], kanban: ["/kanban/1"], dashboard: ["/dashboard"] };
 export const LOAD_PAGE: Record<string, string> = { catalog: "/catalog", kanban: "/kanban/1", dashboard: "/dashboard" };
 export const LOAD_API: Record<string, string> = { catalog: "/api/catalog/products", kanban: "/api/kanban/boards/1", dashboard: "/api/dashboard?range=30" };

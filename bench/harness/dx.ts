@@ -23,21 +23,41 @@ function sizeKb(path: string): number {
   return readdirSync(path).reduce((a, f) => a + sizeKb(join(path, f)), 0);
 }
 
-async function timed(cmd: string, args: string[], cwd = ROOT): Promise<number> {
+async function timed(cmd: string, args: string[], cwd = ROOT, env?: Record<string, string>): Promise<number> {
   const t0 = performance.now();
-  await run(cmd, args, { cwd, maxBuffer: 64 << 20 });
+  await run(cmd, args, { cwd, maxBuffer: 64 << 20, env: env ? { ...process.env, ...env } : process.env });
   return (performance.now() - t0) / 1000;
 }
 
+/** Where each backend's code lives. LOC = adapter + that language's shared core (templates/HTML included,
+ *  so a language that writes HTML in code is not penalized against one that uses template files). */
+interface BackendMeta { lang: "cpp" | "rust" | "go" | "zig"; paths: string[]; deps: string; clean: () => Promise<number> }
+const tmpDir = () => execFileSync("mktemp", ["-d"]).toString().trim();
+const CPP_CORE = ["shared/cpp/src", "shared/cpp/include", "shared/cpp/templates"];
+function meta(name: string): BackendMeta {
+  if (["drogon", "crow", "oatpp", "uwebsockets", "httplib"].includes(name))
+    return { lang: "cpp", paths: [`backends/${name}`, ...CPP_CORE], deps: `backends/${name}/deps.txt`, clean: async () => {
+      await run("ninja", ["-C", "build", "-t", "clean", `bs-${name}`], { cwd: ROOT });
+      return timed("cmake", ["--build", "build", "--target", `bs-${name}`]);
+    } };
+  if (["axum", "actix"].includes(name))
+    return { lang: "rust", paths: [`backends/rust/${name}/src`, "backends/rust/core/src", "shared/cpp/templates"], deps: `backends/rust/${name}/deps.txt`,
+      clean: () => timed("cargo", ["build", "--release", "-p", `bs-${name}`, "--target-dir", tmpDir()], join(ROOT, "backends", "rust")) };
+  if (["gohttp", "fiber"].includes(name))
+    return { lang: "go", paths: [`backends/go/cmd/${name}`, "backends/go/core"], deps: `backends/go/cmd/${name}/deps.txt`,
+      clean: () => timed("go", ["build", "-a", "-o", join(tmpDir(), "bin"), `./cmd/${name}`], join(ROOT, "backends", "go")) };
+  if (["httpzig", "zap"].includes(name))
+    return { lang: "zig", paths: [`backends/zig/${name}`, "backends/zig/core"], deps: `backends/zig/${name}/deps.txt`,
+      clean: () => { const d = tmpDir(); return timed("zig", ["build", "-Doptimize=ReleaseFast", "--prefix", join(d, "out")], join(ROOT, "backends", "zig"), { ZIG_LOCAL_CACHE_DIR: join(d, "c"), ZIG_GLOBAL_CACHE_DIR: join(d, "g") }); } };
+  throw new Error(`unknown backend ${name}`);
+}
+
 export async function backendDx(name: string, build: boolean): Promise<DxRow> {
-  const t = tokei(`backends/${name}`);
-  const deps = readFileSync(join(ROOT, "backends", name, "deps.txt"), "utf8").trim().split("\n").filter(Boolean).length;
-  let build_s: number | null = null;
-  if (build) {
-    await run("ninja", ["-C", "build", "-t", "clean", `bs-${name}`], { cwd: ROOT });
-    build_s = await timed("cmake", ["--build", "build", "--target", `bs-${name}`]);
-  }
-  return { component: "backend", name, loc: t.code, deps, build_s, artifact_kb: sizeKb(join(ROOT, "build", "backends", name, `bs-${name}`)), details: t.byLang };
+  const m = meta(name);
+  const t = tokei(...m.paths);
+  const deps = readFileSync(join(ROOT, m.deps), "utf8").trim().split("\n").filter(Boolean).length;
+  const build_s = build ? await m.clean() : null;
+  return { component: "backend", name, loc: t.code, deps, build_s, artifact_kb: sizeKb(join(ROOT, "build", "backends", name, `bs-${name}`)), details: { lang: m.lang, ...t.byLang } };
 }
 
 const VENDOR: Record<string, string[]> = { htmx: ["vendor/htmx.min.js"], alpine: ["vendor/alpine.min.js"], vanilla: [] };

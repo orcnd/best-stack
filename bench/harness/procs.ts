@@ -7,7 +7,7 @@ import { BUN_PORT, CPP_PORT, isBunFrontend } from "../flows/targets.ts";
 export const ROOT = join(import.meta.dirname, "..", "..");
 const BUN = join(ROOT, "frontends", "runtime", "node_modules", ".bin", "bun");
 
-export type Role = "cpp_backend" | "bun_ssr";
+export type Role = "backend" | "bun_ssr";
 export interface Running { role: Role; proc: ChildProcess; pid: number; coldStartMs: number }
 
 export function resetDb() {
@@ -46,7 +46,7 @@ export async function startBackend(backend: string, threads = 8): Promise<Runnin
   const t0 = performance.now();
   const proc = spawn(bin, ["--port", String(CPP_PORT), "--db", join(ROOT, "data", "app.sqlite"), "--root", ROOT, "--threads", String(threads)], { stdio: "ignore" });
   const coldStartMs = await waitHealthy(`http://localhost:${CPP_PORT}/healthz`, proc, t0);
-  return { role: "cpp_backend", proc, pid: proc.pid!, coldStartMs };
+  return { role: "backend", proc, pid: proc.pid!, coldStartMs };
 }
 
 export async function startBunFrontend(fe: string): Promise<Running | null> {

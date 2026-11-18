@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS load_tests (
   duration_s REAL, rps REAL, p50 REAL, p95 REAL, p99 REAL, errors INTEGER, total INTEGER, raw_json TEXT
 );
 CREATE TABLE IF NOT EXISTS resources (
-  run_id TEXT NOT NULL, combo_id INTEGER NOT NULL, phase TEXT NOT NULL, process_role TEXT NOT NULL, pid INTEGER,
+  run_id TEXT NOT NULL, combo_id INTEGER NOT NULL, phase TEXT NOT NULL, process_role TEXT NOT NULL, pid INTEGER,  -- "backend" (run 2+; run 1: "cpp_backend") | "bun_ssr"
   ts REAL NOT NULL, rss_kb INTEGER, cpu_pct REAL, threads INTEGER, fds INTEGER,
   footprint_kb INTEGER  -- macOS phys_footprint (run 2+); rss_kb double-counts mmap'd SQLite pages
 );
