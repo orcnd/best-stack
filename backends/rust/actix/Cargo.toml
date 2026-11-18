@@ -1,0 +1,12 @@
+[package]
+name = "bs-actix"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "bs-actix"
+path = "src/main.rs"
+
+[dependencies]
+bs-core.workspace = true
+actix-web = { version = "4", default-features = false, features = ["macros"] }

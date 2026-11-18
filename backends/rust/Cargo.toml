@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["core", "axum", "actix"]
+
+[workspace.dependencies]
+bs-core = { path = "core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

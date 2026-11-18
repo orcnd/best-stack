@@ -11,3 +11,4 @@ shared/static/js/
 results/
 frontends/sveltekit/static/static/
 frontends/astro/public/static/
+target/
