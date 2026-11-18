@@ -11,6 +11,9 @@ export class ResultsDb {
     this.db = new DatabaseSync(path);
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec(readFileSync(join(import.meta.dirname, "schema.sql"), "utf8"));
+    // migrate run-1 databases
+    const cols = (this.db.prepare("PRAGMA table_info(resources)").all() as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("footprint_kb")) this.db.exec("ALTER TABLE resources ADD COLUMN footprint_kb INTEGER");
   }
 
   close() { this.db.close(); }

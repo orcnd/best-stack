@@ -6,6 +6,7 @@ set(HTTPLIB_REQUIRE_OPENSSL OFF CACHE BOOL "" FORCE)
 set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
 set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
 set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF CACHE BOOL "" FORCE)  # run-2 rule: no app-level compression
 FetchContent_MakeAvailable(httplib)
 add_executable(bs-httplib main.cpp)
 target_link_libraries(bs-httplib PRIVATE bs_core httplib::httplib)

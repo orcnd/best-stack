@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { ResultsDb } from "../bench/harness/resultsdb.ts";
-import { cvScore, errorScore, higherBetter, lowerBetter, score } from "./score.ts";
+import { cvScore, errorScore, higherBetter, lowerBetter, robustCv, score } from "./score.ts";
 
 const weights = JSON.parse(readFileSync(join(import.meta.dirname, "weights.json"), "utf8"));
 
@@ -19,6 +19,18 @@ test("error rate 0 → 100; CV 4% → 80; CV ≥ 20% → 0", () => {
   assert.equal(errorScore(0.1), 90);
   assert.equal(cvScore(4), 80);
   assert.equal(cvScore(30), 0);
+});
+
+test("robust CV ignores a single spike (MAD-based)", () => {
+  assert.equal(robustCv([25, 25, 25, 25, 25, 25, 25, 25, 25, 200]), 0);
+  assert.ok(Math.abs(robustCv([90, 100, 110, 100, 90, 110]) - 14.826) < 0.01);
+});
+
+test("memory uses footprint_kb when present, rss_kb otherwise", () => {
+  const { db, run } = fixture();
+  db.db.exec("UPDATE resources SET footprint_kb = rss_kb / 10");
+  const b = score(db, run, weights).combos.find((c) => c.backend === "b")!;
+  assert.equal(b.values.rss, 200);
 });
 
 /** Two combos in one use case; B is exactly 2x worse than A on every lower-better metric. */

@@ -31,6 +31,16 @@ export const higherBetter = (vs: (number | null)[], best = Math.max(...vs.filter
   vs.map((v) => (finite(v) && best > 0 ? Math.min(100, (v / best) * 100) : null)) as number[];
 export const errorScore = (rate: number) => Math.round(100 * (1 - rate) * 1e9) / 1e9;
 export const cvScore = (cvPct: number) => Math.max(0, 100 - 5 * cvPct);
+/** Robust coefficient of variation in %: 1.4826·MAD / median · 100 (a single outlier does not move it). */
+export function robustCv(xs: number[]): number {
+  const s = xs.filter(Number.isFinite).sort((a, b) => a - b);
+  const med = (a: number[]) => { const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+  if (s.length < 2) return 0;
+  const m = med(s);
+  if (!m) return 0;
+  const mad = med(s.map((x) => Math.abs(x - m)).sort((a, b) => a - b));
+  return ((1.4826 * mad) / m) * 100;
+}
 
 const median = (xs: number[]) => {
   const s = xs.filter(finite).sort((a, b) => a - b);
@@ -73,8 +83,9 @@ function comboValues(db: ResultsDb, run: string, c: Raw, w: Weights, profiles: s
   const lt = rows<{ rps: number; p95: number | null }>(db, "SELECT rps, p95 FROM load_tests WHERE run_id = ? AND combo_id = ? AND target = 'page' AND concurrency = ?", run, c.combo_id, conc)[0];
   v.rps = lt?.rps ?? null;
   v.p95 = lt?.p95 ?? null;
-  // peak RSS during the page load test: per-role peak, summed (Bun combos have two processes)
-  v.rss = rows<{ peak: number }>(db, "SELECT max(rss_kb) AS peak FROM resources WHERE run_id = ? AND combo_id = ? AND phase = 'load_test_page' GROUP BY process_role", run, c.combo_id)
+  // peak memory during the page load test: per-role peak, summed (Bun combos have two processes).
+  // phys_footprint when recorded (run 2+); ps RSS otherwise (double-counts mmap'd SQLite pages).
+  v.rss = rows<{ peak: number }>(db, "SELECT max(coalesce(footprint_kb, rss_kb)) AS peak FROM resources WHERE run_id = ? AND combo_id = ? AND phase = 'load_test_page' GROUP BY process_role", run, c.combo_id)
     .reduce((a, r) => a + (r.peak ?? 0), 0) || null;
   v.cold_start = rows<{ ms: number }>(db, "SELECT cold_start_ms AS ms FROM starts WHERE run_id = ? AND combo_id = ?", run, c.combo_id).reduce((a, r) => a + r.ms, 0) || null;
   const errs = rows<{ e: number; t: number }>(db, "SELECT coalesce(sum(errors), 0) AS e, coalesce(sum(total), 0) AS t FROM load_tests WHERE run_id = ? AND combo_id = ?", run, c.combo_id)[0];
@@ -84,10 +95,7 @@ function comboValues(db: ResultsDb, run: string, c: Raw, w: Weights, profiles: s
   const lcpRows = rows<{ page: string; lcp: number | null; fcp: number | null }>(db, "SELECT page, lcp, fcp FROM page_loads WHERE run_id = ? AND combo_id = ? AND profile = 'desktop'", run, c.combo_id);
   const cvs = [...new Set(lcpRows.map((r) => r.page))].map((p) => {
     const xs = lcpRows.filter((r) => r.page === p).map((r) => r.lcp ?? r.fcp ?? NaN).filter(finite);
-    const m = mean(xs);
-    if (!m || xs.length < 2) return null;
-    const sd = Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1));
-    return (sd / m) * 100;
+    return xs.length < 2 ? null : robustCv(xs);
   });
   v.variance_cv = median(cvs.filter(finite));
   return v;
@@ -196,7 +204,7 @@ export function report(r: Result, w: Weights, env: Record<string, unknown>): str
   L.push("", "## Frontend ortalamaları", "", "| Frontend | Toplam |", "|---|---|", ...r.frontends.map((b) => `| ${b.name} | ${f1(b.total)} |`));
   for (const uc of [...new Set(r.combos.map((c) => c.usecase))]) {
     const xs = r.combos.filter((c) => c.usecase === uc && c.ranked).sort((a, b) => b.total - a.total);
-    L.push("", `## Senaryo: ${uc}`, "", "| # | Backend | Frontend | LCP ms (masaüstü) | Etkileşim ms (masaüstü) | KB | req/s @" + w.load_concurrency + " | p95 ms | RSS MB | Kullanıcı | Sunucu | DX | Kararlılık | **Toplam** |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+    L.push("", `## Senaryo: ${uc}`, "", "| # | Backend | Frontend | LCP ms (masaüstü) | Etkileşim ms (masaüstü) | KB | req/s @" + w.load_concurrency + " | p95 ms | Bellek MB | Kullanıcı | Sunucu | DX | Kararlılık | **Toplam** |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
     xs.forEach((c, i) => L.push(`| ${i + 1} | ${c.backend} | ${c.frontend} | ${f0(c.values.lcp_desktop)} | ${f0(c.values.interaction_desktop)} | ${f0((c.values.bytes_desktop ?? NaN) / 1024)} | ${f0(c.values.rps)} | ${f1(c.values.p95)} | ${f0((c.values.rss ?? NaN) / 1024)} | ${f0(c.categories.user)} | ${f0(c.categories.server)} | ${f0(c.categories.dx)} | ${f0(c.categories.stability)} | **${f1(c.total)}** |`));
   }
   L.push("", "## Parite dışı kalanlar", "");

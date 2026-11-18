@@ -1,6 +1,7 @@
 // Samples RSS, CPU (from cumulative CPU time deltas), threads and open fds per process.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { footprints } from "./footprint.ts";
 import type { Running } from "./procs.ts";
 import type { ResultsDb } from "./resultsdb.ts";
 
@@ -42,6 +43,7 @@ export class Sampler {
     this.busy = true;
     const withFds = this.tick++ % 4 === 0;
     try {
+      const fp = await footprints(this.procs.map((p) => p.pid)).catch(() => new Map<number, number>());
       for (const p of this.procs) {
         const t = performance.now();
         let rss = null as number | null, cpuPct = null as number | null, threads = null as number | null, fds = null as number | null;
@@ -59,7 +61,7 @@ export class Sampler {
         } catch {
           continue; // process gone
         }
-        this.rows.push({ run_id: this.runId, combo_id: this.comboId, phase: this.phase, process_role: p.role, pid: p.pid, ts: Date.now() / 1000, rss_kb: rss, cpu_pct: cpuPct, threads, fds });
+        this.rows.push({ run_id: this.runId, combo_id: this.comboId, phase: this.phase, process_role: p.role, pid: p.pid, ts: Date.now() / 1000, rss_kb: rss, cpu_pct: cpuPct, threads, fds, footprint_kb: fp.get(p.pid) ?? null });
       }
     } finally {
       this.busy = false;

@@ -65,3 +65,6 @@ foreach(be IN LISTS BS_BACKENDS)
     add_subdirectory(backends/${be})
   endif()
 endforeach()
+
+# Measurement helper (bench/harness/sampler.ts)
+add_executable(bs-footprint bench/tools/footprint.c)

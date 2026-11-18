@@ -90,6 +90,8 @@ int main(int argc, char** argv) {
   app().setLogLevel(trantor::Logger::kWarn)
       .setThreadNum(cli.cfg.threads)
       .disableSession()
+      .enableGzip(false)    // run-2 rule: no app-level compression
+      .enableBrotli(false)
       .setServerHeaderField("")
       .addListener("0.0.0.0", cli.port)
       .run();

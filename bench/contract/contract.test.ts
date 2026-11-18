@@ -147,6 +147,16 @@ describe("invalid params", () => {
   });
 });
 
+describe("no app-level compression (run-2 fairness rule)", () => {
+  test("pages, api and static are sent uncompressed even when the client accepts compression", async () => {
+    const h = { "accept-encoding": "gzip, deflate, br, zstd" };
+    for (const p of ["/vanilla/kanban/1", "/htmx/catalog", "/api/catalog/products", "/static/app.css", "/static/vendor/htmx.min.js"]) {
+      const r = await get(p, { headers: h });
+      expect(`${p}: ${r.headers.get("content-encoding")}`).toBe(`${p}: null`);
+    }
+  });
+});
+
 describe("concurrency smoke", () => {
   test("64 parallel GETs all 200", async () => {
     const rs = await Promise.all(Array.from({ length: 64 }, () => get("/api/catalog/products?page=3")));

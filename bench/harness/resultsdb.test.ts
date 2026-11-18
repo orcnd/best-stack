@@ -34,6 +34,13 @@ test("inserts raw samples", () => {
   assert.equal(db.count("interactions"), 1);
 });
 
+test("resources rows carry footprint_kb", () => {
+  const db = new ResultsDb(path());
+  const run = db.startRun({ seed: 1, order: [], options: {}, versions: {}, machine: "m", os: "o" });
+  db.insertResource({ run_id: run, combo_id: 1, phase: "idle", process_role: "cpp_backend", pid: 1, ts: 0, rss_kb: 10, cpu_pct: 0, threads: 1, fds: 1, footprint_kb: 7 });
+  assert.equal((db.db.prepare("SELECT footprint_kb FROM resources").get() as { footprint_kb: number }).footprint_kb, 7);
+});
+
 test("reopening keeps existing rows", () => {
   const p = path();
   const db = new ResultsDb(p);

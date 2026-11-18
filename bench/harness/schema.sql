@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS load_tests (
 );
 CREATE TABLE IF NOT EXISTS resources (
   run_id TEXT NOT NULL, combo_id INTEGER NOT NULL, phase TEXT NOT NULL, process_role TEXT NOT NULL, pid INTEGER,
-  ts REAL NOT NULL, rss_kb INTEGER, cpu_pct REAL, threads INTEGER, fds INTEGER
+  ts REAL NOT NULL, rss_kb INTEGER, cpu_pct REAL, threads INTEGER, fds INTEGER,
+  footprint_kb INTEGER  -- macOS phys_footprint (run 2+); rss_kb double-counts mmap'd SQLite pages
 );
 CREATE TABLE IF NOT EXISTS dx_components (
   run_id TEXT NOT NULL, component TEXT NOT NULL, name TEXT NOT NULL,
