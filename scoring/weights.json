@@ -1,0 +1,10 @@
+{
+  "categories": { "user": 40, "server": 25, "dx": 20, "stability": 15 },
+  "metrics": {
+    "user": { "lcp": 1, "ttfb": 1, "interaction": 1, "bytes": 1 },
+    "server": { "rps": 1, "p95": 1, "rss": 1 },
+    "dx": { "backend": 1, "frontend": 1, "cold_start": 1 },
+    "stability": { "error_rate": 1, "variance": 1 }
+  },
+  "load_concurrency": 64
+}
