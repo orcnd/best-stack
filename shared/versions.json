@@ -1,0 +1,6 @@
+{
+  "toolchain": { "clang": "Apple clang 21.0.0", "cmake": "4.5.0", "ninja": "1.13.1", "bun": "1.2.2", "node": "26.13.0" },
+  "cpp": { "nlohmann_json": "3.12.0", "inja": "3.5.0", "doctest": "2.4.12", "sqlite": "3.54.1 (homebrew)" },
+  "backends": { "drogon": "1.9.14 (homebrew)", "asio": "1.38.2 (homebrew)" },
+  "tools": { "oha": "1.17.0", "tokei": "15.0.0" }
+}
