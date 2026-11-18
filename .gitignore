@@ -7,3 +7,4 @@ dist/
 .superpowers/
 .DS_Store
 build-dbg/
+shared/static/js/
