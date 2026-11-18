@@ -7,9 +7,9 @@ a SQLite database so the numbers can be re-interpreted later.
 
 ## The matrix
 
-| Backends (C++20) | Frontends | Use cases |
+| Backends | Frontends | Use cases |
 |---|---|---|
-| **C++20**: Drogon · Crow · Oat++ · uWebSockets · cpp-httplib<br>**Rust**: Axum · Actix-web<br>**Go**: net/http · Fiber<br>**Zig 0.17**: http.zig · zap | **HTML rendered by C++** (inja): htmx · Alpine.js · Vanilla TS<br>**SSR on Bun**, data from the C++ JSON API: SvelteKit · Astro + Preact islands | Product catalog (read/SEO heavy) · Kanban (write/interaction heavy) · Analytics dashboard (heavy SQL) |
+| **C++20**: Drogon · Crow · Oat++ · uWebSockets · cpp-httplib<br>**Rust**: Axum · Actix-web<br>**Go**: net/http · Fiber<br>**Zig 0.17**: http.zig · zap | **HTML rendered by the backend**: htmx · Alpine.js · Vanilla TS<br>**SSR on Bun**, data from the backend JSON API: SvelteKit · Astro + Preact islands | Product catalog (read/SEO heavy) · Kanban (write/interaction heavy) · Analytics dashboard (heavy SQL) |
 
 Fairness rules: one core per language (`shared/cpp`, `backends/rust/core`, `backends/go/core`,
 `backends/zig/core`: SQLite data layer, HTML, handlers) — within a language backends differ only in
