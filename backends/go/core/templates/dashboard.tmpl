@@ -1,0 +1,39 @@
+{{define "dashboard"}}{{template "layout_top" .}}
+<div{{if eq .fe "alpine"}} x-data="dashboard"{{end}}>
+<div class="dash-head">
+  <h1>Analitik</h1>
+  <form class="range-form" method="get" action="{{.base}}/dashboard"{{if eq .fe "htmx"}} hx-get="{{.base}}/dashboard" hx-target="#dashboard-body" hx-swap="outerHTML" hx-push-url="true" hx-trigger="submit, change"{{end}}{{if eq .fe "alpine"}} @submit.prevent="load()"{{end}}>
+    <select name="range" data-testid="range-select"{{if eq .fe "alpine"}} x-model="range" @change="load()"{{end}}>
+{{range .ranges}}      <option value="{{.value}}"{{if .selected}} selected{{end}}>{{.label}}</option>
+{{end}}    </select>
+    <button type="submit">Uygula</button>
+  </form>
+</div>
+{{template "dashboard_body" .}}
+</div>
+{{template "layout_bottom" .}}{{end}}
+
+{{define "dashboard_body"}}<section id="dashboard-body">
+{{if eq .fe "alpine"}}<div x-show="!ready">{{end}}
+  <div class="kpis">
+    <div class="kpi"><span class="kpi-label">Olay</span><strong data-testid="kpi-events">{{.kpis.events}}</strong></div>
+    <div class="kpi"><span class="kpi-label">Tekil kullanıcı</span><strong data-testid="kpi-users">{{.kpis.users}}</strong></div>
+    <div class="kpi"><span class="kpi-label">Gelir</span><strong data-testid="kpi-revenue">{{.kpis.revenue}}</strong></div>
+    <div class="kpi"><span class="kpi-label">Dönüşüm</span><strong data-testid="kpi-conversion">{{.kpis.conversion}}</strong></div>
+  </div>
+  <div class="panel"><h2>Günlük olaylar</h2><div class="chart" data-testid="chart-daily">{{.chart}}</div></div>
+  <div class="two-col">
+    <div class="panel"><h2>Ülkeler</h2>
+      <table data-testid="country-table"><thead><tr><th>Ülke</th><th>Olay</th></tr></thead>
+        <tbody>
+{{range .countries}}          <tr><td>{{.country}}</td><td>{{.events}}</td></tr>
+{{end}}        </tbody></table></div>
+    <div class="panel"><h2>En çok gelir getirenler</h2>
+      <table data-testid="top-items-table"><thead><tr><th>Ürün</th><th>Satış</th><th>Gelir</th></tr></thead>
+        <tbody>
+{{range .top_items}}          <tr><td>{{.item}}</td><td>{{.purchases}}</td><td>{{.revenue}}</td></tr>
+{{end}}        </tbody></table></div>
+  </div>
+{{if eq .fe "alpine"}}</div>
+{{template "alpine_dashboard_client" .}}{{end}}
+</section>{{end}}

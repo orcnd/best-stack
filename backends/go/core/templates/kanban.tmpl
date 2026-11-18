@@ -1,0 +1,38 @@
+{{define "kanban"}}{{template "layout_top" .}}
+<div{{if eq .fe "alpine"}} x-data="kanban({{.board.id}})"{{end}}>
+<div class="board-head">
+  <h1>{{.board.name}}</h1>
+  <nav class="board-tabs" data-testid="board-select">
+{{range .boards}}    <a href="{{$.base}}/kanban/{{.id}}"{{if .active}} class="active"{{end}}>{{.name}}</a>
+{{end}}  </nav>
+</div>
+<form class="new-card" method="post" action="{{.base}}/kanban/{{.board.id}}/cards"{{if eq .fe "htmx"}} hx-post="{{.base}}/kanban/{{.board.id}}/cards" hx-target="#board" hx-swap="outerHTML" hx-on::after-request="if (event.detail.successful) this.reset()"{{end}}{{if eq .fe "alpine"}} @submit.prevent="create($event.target)"{{end}}>
+  <input type="text" name="title" maxlength="200" required placeholder="Yeni kart başlığı" data-testid="new-card-input">
+  <input type="hidden" name="column" value="backlog">
+  <button type="submit" data-testid="new-card-submit">Kart ekle</button>
+</form>
+{{template "board" .}}
+</div>
+{{template "layout_bottom" .}}{{end}}
+
+{{define "board"}}<div class="board" id="board"{{if eq .fe "htmx"}} hx-target="#board" hx-swap="outerHTML"{{end}}{{if eq .fe "alpine"}} x-show="!ready"{{end}}>
+{{range .columns}}  <section class="column" data-testid="column-{{.key}}">
+    <h2>{{.label}} <span class="count">{{.count}}</span></h2>
+{{if gt .count 0}}    <ul class="cards">
+{{range .cards}}      <li class="card" data-testid="card" data-card-id="{{.id}}">
+        <form class="title-form" method="post" action="{{$.base}}/kanban/cards/{{.id}}"{{if eq $.fe "htmx"}} hx-post="{{$.base}}/kanban/cards/{{.id}}"{{end}}{{if eq $.fe "alpine"}} @submit.prevent="update({{.id}}, { title: $event.target.elements.title.value })"{{end}}>
+          <input class="card-title" type="text" name="title" value="{{.title}}" maxlength="200" data-testid="card-title">
+          <button type="submit" class="small" data-testid="card-edit">Kaydet</button>
+        </form>
+        <p class="card-meta"><span class="labels">{{.labels}}</span> <span class="assignee">{{.assignee}}</span> <span class="due">{{.due}}</span></p>
+        <div class="card-actions">
+          <form method="post" action="{{$.base}}/kanban/cards/{{.id}}"{{if eq $.fe "htmx"}} hx-post="{{$.base}}/kanban/cards/{{.id}}"{{end}}{{if eq $.fe "alpine"}} @submit.prevent="update({{.id}}, { move: 'left' })"{{end}}><input type="hidden" name="move" value="left"><button type="submit" class="small" data-testid="card-move-left"{{if .first}} disabled{{end}}>←</button></form>
+          <form method="post" action="{{$.base}}/kanban/cards/{{.id}}"{{if eq $.fe "htmx"}} hx-post="{{$.base}}/kanban/cards/{{.id}}"{{end}}{{if eq $.fe "alpine"}} @submit.prevent="update({{.id}}, { move: 'right' })"{{end}}><input type="hidden" name="move" value="right"><button type="submit" class="small" data-testid="card-move-right"{{if .last}} disabled{{end}}>→</button></form>
+          <form method="post" action="{{$.base}}/kanban/cards/{{.id}}"{{if eq $.fe "htmx"}} hx-post="{{$.base}}/kanban/cards/{{.id}}"{{end}}{{if eq $.fe "alpine"}} @submit.prevent="remove({{.id}})"{{end}}><input type="hidden" name="delete" value="1"><button type="submit" class="small danger" data-testid="card-delete">Sil</button></form>
+        </div>
+      </li>
+{{end}}    </ul>
+{{else}}    <p class="empty" data-testid="empty-state">Kart yok.</p>
+{{end}}  </section>
+{{end}}</div>
+{{if eq .fe "alpine"}}{{template "alpine_board_client" .}}{{end}}{{end}}

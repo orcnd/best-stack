@@ -1,0 +1,33 @@
+{{define "layout_top"}}<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.title}} · Best Stack</title>
+<meta name="description" content="{{.description}}">
+<link rel="stylesheet" href="/static/app.css">
+{{if eq .fe "htmx"}}<script src="/static/vendor/htmx.min.js" defer></script>
+<script src="/static/js/htmx/htmx-config.js" defer></script>{{end}}
+{{if eq .fe "alpine"}}<script src="/static/js/alpine/{{.nav}}.js" defer></script>
+<script src="/static/vendor/alpine.min.js" defer></script>{{end}}
+{{if eq .fe "vanilla"}}<script type="module" src="/static/js/vanilla/{{.nav}}.js"></script>{{end}}
+</head>
+<body>
+<header class="site-header" data-testid="site-header">
+  <a class="brand" href="{{.base}}/catalog">Best Stack</a>
+  <nav class="main-nav">
+    <a data-testid="nav-catalog" href="{{.base}}/catalog"{{if eq .nav "catalog"}} class="active"{{end}}>Katalog</a>
+    <a data-testid="nav-kanban" href="{{.base}}/kanban/1"{{if eq .nav "kanban"}} class="active"{{end}}>Kanban</a>
+    <a data-testid="nav-dashboard" href="{{.base}}/dashboard"{{if eq .nav "dashboard"}} class="active"{{end}}>Dashboard</a>
+  </nav>
+  <a class="cart-link" href="{{.base}}/catalog/cart">Sepet {{template "badge" .}}</a>
+</header>
+<main class="container">
+{{end}}
+
+{{define "layout_bottom"}}</main>
+</body>
+</html>
+{{end}}
+
+{{define "badge"}}<span class="badge" id="cart-badge" data-testid="cart-badge"{{if eq .fe "alpine"}} x-data x-text="$store.cart.count"{{end}}>{{.cart_count}}</span>{{end}}

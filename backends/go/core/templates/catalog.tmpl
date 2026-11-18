@@ -1,0 +1,101 @@
+{{define "catalog"}}{{template "layout_top" .}}
+<div{{if eq .fe "alpine"}} x-data="shop"{{end}}>
+<h1>Ürün Kataloğu</h1>
+<form class="toolbar" data-testid="search-form" method="get" action="{{.base}}/catalog"{{if eq .fe "htmx"}} hx-get="{{.base}}/catalog" hx-target="#product-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="this:replace"{{end}}{{if eq .fe "alpine"}} @submit.prevent="search()"{{end}}>
+  <input type="search" name="q" value="{{.q}}" placeholder="Ürün ara…" data-testid="search-input"{{if eq .fe "htmx"}} hx-get="{{.base}}/catalog" hx-trigger="input changed delay:250ms, search" hx-include="closest form"{{end}}{{if eq .fe "alpine"}} x-model="q" @input.debounce.250ms="search()"{{end}}>
+  <select name="cat" data-testid="category-filter"{{if eq .fe "htmx"}} hx-get="{{.base}}/catalog" hx-trigger="change" hx-include="closest form"{{end}}{{if eq .fe "alpine"}} x-model="cat" @change="search()"{{end}}>
+    <option value="">Tüm kategoriler</option>
+{{range .categories}}    <option value="{{.slug}}"{{if .selected}} selected{{end}}>{{.name}}</option>
+{{end}}  </select>
+  <select name="sort" data-testid="sort-select"{{if eq .fe "htmx"}} hx-get="{{.base}}/catalog" hx-trigger="change" hx-include="closest form"{{end}}{{if eq .fe "alpine"}} x-model="sort" @change="search()"{{end}}>
+    <option value=""{{if eq .sort ""}} selected{{end}}>Varsayılan sıralama</option>
+    <option value="price_asc"{{if eq .sort "price_asc"}} selected{{end}}>Fiyat (artan)</option>
+    <option value="price_desc"{{if eq .sort "price_desc"}} selected{{end}}>Fiyat (azalan)</option>
+  </select>
+  <button type="submit">Ara</button>
+</form>
+{{template "catalog_results" .}}
+</div>
+{{template "layout_bottom" .}}{{end}}
+
+{{define "catalog_results"}}<section id="product-results"{{if eq .fe "htmx"}} hx-target="#product-results" hx-swap="outerHTML" hx-push-url="true"{{end}}>
+{{if eq .fe "alpine"}}<div x-show="!ready">{{end}}
+  <p class="result-count">{{.total_fmt}} ürün</p>
+{{if .has_items}}  <div class="grid" data-testid="product-grid">
+{{range .items}}    <article class="product-card" data-testid="product-card">
+      <a class="thumb" href="{{$.base}}/catalog/p/{{.id}}"><img src="{{.image}}" alt="{{.name}}" width="320" height="240"></a>
+      <h2 class="product-name" data-testid="product-name"><a href="{{$.base}}/catalog/p/{{.id}}">{{.name}}</a></h2>
+      <p class="product-category">{{.category}}</p>
+      <p class="product-price" data-testid="product-price">{{.price}}</p>
+      <form class="add-form" method="post" action="{{$.base}}/catalog/cart"{{if eq $.fe "htmx"}} hx-post="{{$.base}}/catalog/cart" hx-target="#cart-badge" hx-swap="outerHTML" hx-push-url="false"{{end}}{{if eq $.fe "alpine"}} @submit.prevent="add({{.id}})"{{end}}>
+        <input type="hidden" name="product_id" value="{{.id}}">
+        <input type="hidden" name="qty" value="1">
+        <button type="submit" data-testid="add-to-cart">Sepete ekle</button>
+      </form>
+    </article>
+{{end}}  </div>
+{{else}}  <p class="empty" data-testid="empty-state">Sonuç bulunamadı.</p>
+{{end}}  <nav class="pagination" data-testid="pagination">
+{{if .prev_href}}    <a data-testid="page-prev" href="{{.prev_href}}"{{if eq .fe "htmx"}} hx-get="{{.prev_href}}"{{end}}{{if eq .fe "alpine"}} @click.prevent="go({{.page}} - 1)"{{end}}>‹ Önceki</a>
+{{else}}    <span class="disabled">‹ Önceki</span>
+{{end}}    <span class="page-info">Sayfa {{.page}} / {{.pages}}</span>
+{{if .next_href}}    <a data-testid="page-next" href="{{.next_href}}"{{if eq .fe "htmx"}} hx-get="{{.next_href}}"{{end}}{{if eq .fe "alpine"}} @click.prevent="go({{.page}} + 1)"{{end}}>Sonraki ›</a>
+{{else}}    <span class="disabled">Sonraki ›</span>
+{{end}}  </nav>
+{{if eq .fe "alpine"}}</div>
+{{template "alpine_catalog_client" .}}{{end}}
+</section>{{end}}
+
+{{define "product"}}{{template "layout_top" .}}
+<div{{if eq .fe "alpine"}} x-data="shop"{{end}}>
+<article class="product-detail" data-testid="product-detail">
+  <img src="{{.product.image}}" alt="{{.product.name}}" width="320" height="240">
+  <div class="info">
+    <h1>{{.product.name}}</h1>
+    <p class="product-category">{{.product.category}}</p>
+    <p class="product-price" data-testid="product-price">{{.product.price}}</p>
+    <p class="rating">{{.product.rating}}</p>
+    <p class="stock">Stok: {{.product.stock}}</p>
+    <p class="description">{{.product.description}}</p>
+    <form class="add-form" method="post" action="{{.base}}/catalog/cart"{{if eq .fe "htmx"}} hx-post="{{.base}}/catalog/cart" hx-target="#cart-badge" hx-swap="outerHTML"{{end}}{{if eq .fe "alpine"}} @submit.prevent="add({{.product.id}})"{{end}}>
+      <input type="hidden" name="product_id" value="{{.product.id}}">
+      <input type="hidden" name="qty" value="1">
+      <button type="submit" data-testid="add-to-cart">Sepete ekle</button>
+    </form>
+  </div>
+</article>
+<a class="back" href="{{.base}}/catalog">‹ Kataloğa dön</a>
+</div>
+{{template "layout_bottom" .}}{{end}}
+
+{{define "cart"}}{{template "layout_top" .}}
+<div{{if eq .fe "alpine"}} x-data="shop"{{end}}>
+<h1>Sepet</h1>
+{{template "cart_body" .}}
+</div>
+{{template "layout_bottom" .}}{{end}}
+
+{{define "cart_body"}}<section id="cart"{{if eq .fe "htmx"}} hx-target="#cart" hx-swap="outerHTML"{{end}}>
+{{if eq .fe "alpine"}}<div x-show="!ready">{{end}}
+{{if not .cart.empty}}  <table class="cart-table" data-testid="cart-table">
+    <thead><tr><th>Ürün</th><th>Fiyat</th><th>Adet</th><th>Tutar</th><th></th></tr></thead>
+    <tbody>
+{{range .cart.items}}      <tr data-testid="cart-row">
+        <td><a href="{{$.base}}/catalog/p/{{.product_id}}">{{.name}}</a></td>
+        <td>{{.price}}</td>
+        <td><form class="qty-form" method="post" action="{{$.base}}/catalog/cart/{{.id}}"{{if eq $.fe "htmx"}} hx-post="{{$.base}}/catalog/cart/{{.id}}"{{end}}{{if eq $.fe "alpine"}} @submit.prevent="setQty({{.id}}, $event.target.elements.qty.value)"{{end}}>
+              <input type="number" name="qty" min="0" max="99" value="{{.qty}}" data-testid="cart-qty">
+              <button type="submit" data-testid="cart-update">Güncelle</button></form></td>
+        <td>{{.line}}</td>
+        <td><form method="post" action="{{$.base}}/catalog/cart/{{.id}}"{{if eq $.fe "htmx"}} hx-post="{{$.base}}/catalog/cart/{{.id}}"{{end}}{{if eq $.fe "alpine"}} @submit.prevent="setQty({{.id}}, 0)"{{end}}>
+              <input type="hidden" name="qty" value="0">
+              <button type="submit" data-testid="cart-remove">Kaldır</button></form></td>
+      </tr>
+{{end}}    </tbody>
+  </table>
+  <p class="cart-total">Toplam: <strong data-testid="cart-total">{{.cart.total}}</strong></p>
+{{else}}  <p class="empty" data-testid="empty-state">Sepetiniz boş.</p>
+{{end}}{{if eq .fe "alpine"}}</div>
+{{template "alpine_cart_client" .}}{{end}}
+</section>
+{{if and .fragment (eq .fe "htmx")}}<span class="badge" id="cart-badge" data-testid="cart-badge" hx-swap-oob="true">{{.cart.cart_count}}</span>{{end}}{{end}}
