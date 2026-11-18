@@ -1,0 +1,8 @@
+{
+  "name": "best-stack-bun-runtime",
+  "private": true,
+  "description": "Pinned Bun runtime used to build and run the SvelteKit and Astro servers (system bun is older).",
+  "dependencies": {
+    "bun": "1.4.4"
+  }
+}
