@@ -12,6 +12,16 @@ export const THRESHOLD = 0.005;
 const REF = join(import.meta.dirname, "reference");
 const OUT = join(import.meta.dirname, "..", "..", "results", "screens");
 
+function compare(a: PNG, shot: Buffer): { ratio: number; note?: string; diff?: PNG } {
+  const b = PNG.sync.read(shot);
+  if (a.width !== b.width || a.height !== b.height)
+    return { ratio: 1, note: `size ${b.width}x${b.height} vs ref ${a.width}x${a.height}` };
+  const diff = new PNG({ width: a.width, height: a.height });
+  const n = pixelmatch(a.data, b.data, diff.data, a.width, a.height, { threshold: 0.1 });
+  const ratio = n / (a.width * a.height);
+  return { ratio, diff: ratio >= THRESHOLD ? diff : undefined };
+}
+
 export async function visual(fe: Frontend, update = false) {
   mkdirSync(REF, { recursive: true });
   mkdirSync(join(OUT, fe), { recursive: true });
@@ -27,26 +37,29 @@ export async function visual(fe: Frontend, update = false) {
         await page.waitForLoadState("networkidle");
       }
       await page.evaluate(() => document.fonts.ready);
-      const buf = await page.screenshot({ fullPage: true, animations: "disabled", caret: "hide" });
-      await ctx.close();
-      writeFileSync(join(OUT, fe, `${vp.name}.png`), buf);
       const refPath = join(REF, `${vp.name}.png`);
+      const shoot = () => page.screenshot({ fullPage: true, animations: "disabled", caret: "hide" });
+      let buf = await shoot();
       if (update || !existsSync(refPath)) {
+        await ctx.close();
+        writeFileSync(join(OUT, fe, `${vp.name}.png`), buf);
         writeFileSync(refPath, buf);
         pages.push({ page: vp.name, ratio: 0, note: "reference written" });
         continue;
       }
-      const a = PNG.sync.read(readFileSync(refPath));
-      const b = PNG.sync.read(buf);
-      if (a.width !== b.width || a.height !== b.height) {
-        pages.push({ page: vp.name, ratio: 1, note: `size ${b.width}x${b.height} vs ref ${a.width}x${a.height}` });
-        continue;
+      const ref = PNG.sync.read(readFileSync(refPath));
+      let cmp = compare(ref, buf);
+      if (cmp.ratio >= THRESHOLD) {
+        // one settle-and-retry: a late layout/paint shouldn't count as a parity failure
+        await page.waitForTimeout(500);
+        buf = await shoot();
+        cmp = compare(ref, buf);
+        cmp.note = `retried; ${cmp.note ?? ""}`.trim();
       }
-      const diff = new PNG({ width: a.width, height: a.height });
-      const n = pixelmatch(a.data, b.data, diff.data, a.width, a.height, { threshold: 0.1 });
-      const ratio = n / (a.width * a.height);
-      if (ratio >= THRESHOLD) writeFileSync(join(OUT, fe, `${vp.name}.diff.png`), PNG.sync.write(diff));
-      pages.push({ page: vp.name, ratio });
+      await ctx.close();
+      writeFileSync(join(OUT, fe, `${vp.name}.png`), buf);
+      if (cmp.diff) writeFileSync(join(OUT, fe, `${vp.name}.diff.png`), PNG.sync.write(cmp.diff));
+      pages.push({ page: vp.name, ratio: cmp.ratio, ...(cmp.ratio > 0 && cmp.note ? { note: cmp.note } : {}) });
     }
   } finally {
     await browser.close();

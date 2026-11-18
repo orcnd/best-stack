@@ -16,7 +16,7 @@ bun test bench/contract 2>&1 | grep -E "\(fail\)|^ *[0-9]+ (pass|fail)$" || stat
 bun test bench/contract >/dev/null 2>&1 || status=1
 for fe in htmx alpine vanilla; do
   node bench/parity/functional.ts $fe || status=1
-  node bench/parity/visual.ts $fe | cut -c1-120 || status=1
+  node bench/parity/visual.ts $fe | python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); print(d["frontend"], "visual ok" if d["ok"] else [p for p in d["pages"] if p["ratio"]>0])' || status=1
   node bench/parity/seo.ts $fe || status=1
 done
 echo "check-backend $be: $([ $status = 0 ] && echo PASS || echo FAIL)"

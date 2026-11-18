@@ -33,6 +33,21 @@ async function cardHandle(page: Page, title: string) {
   return el;
 }
 
+/** Click a control inside the card titled `title`; re-find the card if a re-render detached it. */
+async function clickInCard(page: Page, title: string, testid: string) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    try {
+      const card = await cardHandle(page, title);
+      await (await card.$(`[data-testid="${testid}"]`))!.click({ timeout: 2000 });
+      return;
+    } catch (e) {
+      if (!/not attached|detached|card not found/.test(String(e))) throw e;
+      await page.waitForTimeout(10);
+    }
+  }
+  throw new Error(`could not click ${testid} in card ${title}`);
+}
+
 async function apiHasTitle(title: string, present: boolean) {
   const deadline = Date.now() + TIMEOUT;
   while (Date.now() < deadline) {
@@ -70,13 +85,11 @@ export async function run(page: Page, root: string, step: StepFn) {
     await findCard(page, renamed, "backlog");
   });
   await step("move_right", async () => {
-    const card = await cardHandle(page, renamed);
-    await (await card.$('[data-testid="card-move-right"]'))!.click();
+    await clickInCard(page, renamed, "card-move-right");
     await findCard(page, renamed, "todo");
   });
   await step("delete", async () => {
-    const card = await cardHandle(page, renamed);
-    await (await card.$('[data-testid="card-delete"]'))!.click();
+    await clickInCard(page, renamed, "card-delete");
     await page.waitForFunction(
       (t) => ![...document.querySelectorAll<HTMLInputElement>('[data-testid="card-title"]')].some((i) => i.offsetParent !== null && i.value === t),
       renamed,
