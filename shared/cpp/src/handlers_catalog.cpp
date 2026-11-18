@@ -57,6 +57,7 @@ Resp catalog_page(const Req& r) {
   vm["q"] = q.q;
   vm["sort"] = q.sort;
   vm["categories"] = cats;
+  vm["has_items"] = !items.empty();
   vm["items"] = items;
   vm["total"] = page.total;
   vm["total_fmt"] = fmt_int(page.total);

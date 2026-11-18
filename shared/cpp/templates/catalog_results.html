@@ -3,7 +3,7 @@
 <div x-show="!ready">
 {% endif %}
   <p class="result-count">{{ total_fmt }} ürün</p>
-{% if length(items) > 0 %}
+{% if has_items %}
   <div class="grid" data-testid="product-grid">
 {% for p in items %}
     <article class="product-card" data-testid="product-card">
