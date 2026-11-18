@@ -1,0 +1,40 @@
+---
+import Board from "../../islands/Board";
+import Layout from "../../layouts/Layout.astro";
+import type { Board as BoardT } from "../../lib/client";
+import { api, sessionId } from "../../lib/server";
+
+const id = Astro.params.board ?? "";
+if (!/^\d+$/.test(id)) return new Response("Bulunamadı", { status: 404 });
+const sid = sessionId(Astro.cookies);
+if (Astro.request.method === "POST") {
+  // No-JS form posts: create (title+column) or update (id + title|move|delete).
+  const fd = await Astro.request.formData();
+  const cardId = fd.get("id");
+  if (!cardId) {
+    await api(`/api/kanban/boards/${id}/cards`, sid, { method: "POST", json: { title: String(fd.get("title") ?? ""), column: String(fd.get("column") ?? "backlog") } });
+  } else if (fd.get("delete") === "1") {
+    await api(`/api/kanban/cards/${cardId}`, sid, { method: "DELETE" });
+  } else {
+    const patch: Record<string, string> = {};
+    if (fd.has("title")) patch.title = String(fd.get("title"));
+    if (fd.has("move")) patch.move = String(fd.get("move"));
+    await api(`/api/kanban/cards/${cardId}`, sid, { method: "PATCH", json: patch });
+  }
+  return Astro.redirect(`/kanban/${id}`, 303);
+}
+const [b, all] = await Promise.all([
+  api<BoardT>(`/api/kanban/boards/${id}`, sid),
+  api<{ id: number; name: string }[]>("/api/kanban/boards", sid),
+]);
+if (b.status !== 200) return new Response("Bulunamadı", { status: 404 });
+---
+<Layout title={`${b.data.name} · Kanban`} description="Kanban panosu" nav="kanban">
+  <div class="board-head">
+    <h1>{b.data.name}</h1>
+    <nav class="board-tabs" data-testid="board-select">
+      {all.data.map((t) => <a href={`/kanban/${t.id}`} class={t.id === b.data.id ? "active" : undefined}>{t.name}</a>)}
+    </nav>
+  </div>
+  <Board client:load initial={b.data} />
+</Layout>

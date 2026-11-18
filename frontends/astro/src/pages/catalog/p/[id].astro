@@ -1,0 +1,27 @@
+---
+import AddToCart from "../../../islands/AddToCart";
+import Layout from "../../../layouts/Layout.astro";
+import { money, rating, type ProductPage } from "../../../lib/client";
+import { api, sessionId } from "../../../lib/server";
+
+type Product = ProductPage["items"][number];
+const id = Astro.params.id ?? "";
+if (!/^\d+$/.test(id)) return new Response("Bulunamadı", { status: 404 });
+const { status, data: p } = await api<Product>(`/api/catalog/products/${id}`, sessionId(Astro.cookies));
+if (status !== 200) return new Response("Bulunamadı", { status: 404 });
+---
+<Layout title={p.name} description={p.description} nav="catalog">
+  <article class="product-detail" data-testid="product-detail">
+    <img src={p.image} alt={p.name} width="320" height="240">
+    <div class="info">
+      <h1>{p.name}</h1>
+      <p class="product-category">{p.category}</p>
+      <p class="product-price" data-testid="product-price">{money(p.price_cents)}</p>
+      <p class="rating">{rating(p.rating)}</p>
+      <p class="stock">Stok: {p.stock}</p>
+      <p class="description">{p.description}</p>
+      <AddToCart client:load productId={p.id} />
+    </div>
+  </article>
+  <a class="back" href="/catalog">‹ Kataloğa dön</a>
+</Layout>

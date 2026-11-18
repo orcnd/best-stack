@@ -1,0 +1,24 @@
+---
+import CartView from "../../islands/CartView";
+import Layout from "../../layouts/Layout.astro";
+import type { Cart } from "../../lib/client";
+import { api, sessionId } from "../../lib/server";
+
+const sid = sessionId(Astro.cookies);
+if (Astro.request.method === "POST") {
+  // No-JS form posts: add-to-cart (product_id) or quantity change (item_id).
+  const fd = await Astro.request.formData();
+  if (fd.has("product_id")) {
+    await api("/api/catalog/cart", sid, { method: "POST", json: { product_id: Number(fd.get("product_id")), qty: 1 } });
+    return Astro.redirect(Astro.request.headers.get("referer") ?? "/catalog", 303);
+  }
+  const qty = Math.max(0, Math.min(99, Number(fd.get("qty")) || 0));
+  await api(`/api/catalog/cart/${Number(fd.get("item_id"))}`, sid, { method: "PATCH", json: { qty } });
+  return Astro.redirect("/catalog/cart", 303);
+}
+const { data } = await api<Cart>("/api/catalog/cart", sid);
+---
+<Layout title="Sepet" description="Alışveriş sepeti" nav="catalog">
+  <h1>Sepet</h1>
+  <CartView client:load initial={data} />
+</Layout>

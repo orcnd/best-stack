@@ -1,0 +1,13 @@
+---
+import DashboardView from "../islands/DashboardView";
+import Layout from "../layouts/Layout.astro";
+import type { Dashboard } from "../lib/client";
+import { api, sessionId } from "../lib/server";
+
+const range = Astro.url.searchParams.get("range") || "30";
+if (!["7", "30", "90"].includes(range)) return new Response("Geçersiz aralık", { status: 400 });
+const { data } = await api<Dashboard>(`/api/dashboard?range=${range}`, sessionId(Astro.cookies));
+---
+<Layout title="Analitik" description="Analitik dashboard" nav="dashboard">
+  <DashboardView client:load initial={data} range={range} />
+</Layout>

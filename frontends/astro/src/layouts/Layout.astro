@@ -1,0 +1,33 @@
+---
+import Badge from "../islands/Badge";
+import { api, sessionId } from "../lib/server";
+import type { Cart } from "../lib/client";
+
+interface Props { title: string; description: string; nav: "catalog" | "kanban" | "dashboard" }
+const { title, description, nav } = Astro.props;
+const { data: cart } = await api<Cart>("/api/catalog/cart", sessionId(Astro.cookies));
+---
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title} · Best Stack</title>
+<meta name="description" content={description}>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="site-header" data-testid="site-header">
+  <a class="brand" href="/catalog">Best Stack</a>
+  <nav class="main-nav">
+    <a data-testid="nav-catalog" href="/catalog" class={nav === "catalog" ? "active" : undefined}>Katalog</a>
+    <a data-testid="nav-kanban" href="/kanban/1" class={nav === "kanban" ? "active" : undefined}>Kanban</a>
+    <a data-testid="nav-dashboard" href="/dashboard" class={nav === "dashboard" ? "active" : undefined}>Dashboard</a>
+  </nav>
+  <a class="cart-link" href="/catalog/cart">Sepet <Badge client:load count={cart.count} /></a>
+</header>
+<main class="container">
+  <slot />
+</main>
+</body>
+</html>

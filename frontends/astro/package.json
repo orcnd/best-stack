@@ -1,0 +1,16 @@
+{
+  "name": "best-stack-astro",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "assets": "mkdir -p public/static && cp ../../shared/static/app.css public/static/ && cp -R ../../shared/static/img public/static/",
+    "build": "bun run assets && ../runtime/node_modules/.bin/bun --bun astro build",
+    "start": "../runtime/node_modules/.bin/bun dist/server/entry.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "11.1.13",
+    "@astrojs/preact": "6.1.6",
+    "astro": "7.4.12",
+    "preact": "11.2.0"
+  }
+}

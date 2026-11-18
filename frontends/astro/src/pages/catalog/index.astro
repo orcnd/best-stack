@@ -1,0 +1,14 @@
+---
+import CatalogBrowser from "../../islands/CatalogBrowser";
+import Layout from "../../layouts/Layout.astro";
+import { catalogQuery, type ProductPage } from "../../lib/client";
+import { api, sessionId } from "../../lib/server";
+
+const s = Astro.url.searchParams;
+const params = { q: s.get("q") ?? "", cat: s.get("cat") ?? "", sort: s.get("sort") ?? "", page: Number(s.get("page")) || 1 };
+const { data } = await api<ProductPage>(`/api/catalog/products${catalogQuery(params)}`, sessionId(Astro.cookies));
+---
+<Layout title="Ürün Kataloğu" description="Best Stack demo ürün kataloğu" nav="catalog">
+  <h1>Ürün Kataloğu</h1>
+  <CatalogBrowser client:load initial={data} params={{ ...params, page: data.page }} />
+</Layout>
