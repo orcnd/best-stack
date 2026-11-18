@@ -59,8 +59,8 @@ std::string fmt_rating(double r) {
 void load_templates(const std::string& root) {
   auto dir = fs::path(root) / "shared" / "cpp" / "templates";
   g_env = std::make_unique<inja::Environment>(dir.string() + "/");
-  g_env->set_trim_blocks(true);
-  g_env->set_lstrip_blocks(true);
+  g_env->set_trim_blocks(false);  // inja trims ALL whitespace after `%}`, not just the newline
+  g_env->set_lstrip_blocks(false);  // true also strips the space after `%}` inside tags
   g_env->set_line_statement("%%%%");  // effectively disable line statements
   g_templates.clear();
   for (auto& e : fs::directory_iterator(dir)) {

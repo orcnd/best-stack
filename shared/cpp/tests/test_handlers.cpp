@@ -256,3 +256,12 @@ TEST_CASE("handlers: static works with a relative root") {
   bs::init({BS_ROOT, (fs::temp_directory_path() / "bs-tests" / ("handlers-" + std::to_string(::getpid()) + ".sqlite")).string(), 1});
   CHECK(r.has_value());
 }
+
+TEST_CASE("handlers: conditional attributes keep their leading space") {
+  auto a = call("GET", "/alpine/dashboard").body;
+  CHECK(a.find("<div x-data=\"dashboard\">") != std::string::npos);
+  CHECK(a.find("data-testid=\"cart-badge\" x-data") != std::string::npos);
+  auto h = call("GET", "/htmx/catalog").body;
+  CHECK(h.find("action=\"/htmx/catalog\" hx-get=") != std::string::npos);
+  CHECK(h.find("\"x-") == std::string::npos);
+}
