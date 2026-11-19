@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 # Usage: bench/scripts/check-backend.sh <backend> — contract + functional/visual/seo parity for the
 # three C++-rendered frontends against a fresh DB. Exits non-zero on the first failure.
+# BS_PORT (default 18080) picks the port; each port gets its own DB copy, so checks can run in parallel.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 be=$1
 bin=build/backends/$be/bs-$be
-pkill -f 'build/backends/.*/bs-' 2>/dev/null; sleep 0.3
-bench/scripts/reset-db.sh
-"$bin" --db data/app.sqlite --root . --threads 8 > "/tmp/bs-$be.log" 2>&1 &
+port=${BS_PORT:-18080}
+export BS_PORT=$port BASE=http://127.0.0.1:$port
+for p in $(lsof -ti tcp:$port -sTCP:LISTEN 2>/dev/null); do ps -o command= -p $p | grep -q 'build/backends/' && kill $p; done; sleep 0.3
+db=data/app-$port.sqlite
+rm -f $db $db-wal $db-shm && cp data/pristine.sqlite $db
+"$bin" --port $port --db $db --root . --threads 8 > "/tmp/bs-$be-$port.log" 2>&1 &
 pid=$!
 trap 'kill $pid 2>/dev/null' EXIT
-for _ in $(seq 1 50); do curl -sf localhost:18080/healthz >/dev/null && break; sleep 0.1; done
+for _ in $(seq 1 50); do curl -sf 127.0.0.1:$port/healthz >/dev/null && break; sleep 0.1; done
 status=0
 bun test bench/contract 2>&1 | grep -E "\(fail\)|^ *[0-9]+ (pass|fail)$" || status=1
 bun test bench/contract >/dev/null 2>&1 || status=1

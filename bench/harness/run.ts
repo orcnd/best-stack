@@ -1,9 +1,10 @@
 // Full measurement run. Usage:
 //   node bench/harness/run.ts [--usecases a,b] [--backends ...] [--frontends ...] [--profiles desktop,mobile]
-//     [--iters 10] [--flow-iters 5] [--load-duration 10] [--concurrency 1,16,64] [--seed 1] [--quick] [--skip-dx] [--notes "..."]
+//     [--iters 10] [--flow-iters 5] [--load-duration 10] [--concurrency 1,16,64] [--seed 1] [--quick] [--skip-dx] [--server-only] [--results path] [--notes "..."]
+//   --server-only: parity + load tests + resources only (no browser page loads or flows).
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { chromium } from "playwright";
 import { rng } from "../../shared/seed/rng.ts";
 import { functional } from "../parity/functional.ts";
@@ -20,6 +21,8 @@ import { ResultsDb } from "./resultsdb.ts";
 import { Sampler } from "./sampler.ts";
 
 export const BACKENDS = ["drogon", "crow", "oatpp", "uwebsockets", "httplib", "axum", "actix", "gohttp", "fiber", "httpzig", "zap"] as const;
+/** Run 3: same frameworks with the rendering layer replaced (glaze+mimalloc, askama+mimalloc, templ+go-json). */
+export const OPT_BACKENDS = ["crow-opt", "uwebsockets-opt", "axum-opt", "actix-opt", "gohttp-opt", "fiber-opt"] as const;
 export const PAGES: Record<string, string[]> = { catalog: ["/catalog", "/catalog/p/1", "/catalog/cart"], kanban: ["/kanban/1"], dashboard: ["/dashboard"] };
 export const LOAD_PAGE: Record<string, string> = { catalog: "/catalog", kanban: "/kanban/1", dashboard: "/dashboard" };
 export const LOAD_API: Record<string, string> = { catalog: "/api/catalog/products", kanban: "/api/kanban/boards/1", dashboard: "/api/dashboard?range=30" };
@@ -34,7 +37,7 @@ function args() {
     profiles: list("profiles", ["desktop", "mobile"]) as Profile[],
     iters: Number(get("iters", quick ? "2" : "10")), flowIters: Number(get("flow-iters", quick ? "1" : "5")),
     loadDuration: Number(get("load-duration", quick ? "3" : "10")), concurrency: list("concurrency", quick ? ["16"] : ["1", "16", "64"]).map(Number),
-    seed: Number(get("seed", "1")), quick, skipDx: a.includes("--skip-dx"), notes: get("notes", ""), cooldownMs: quick ? 1000 : 5000,
+    seed: Number(get("seed", "1")), quick, skipDx: a.includes("--skip-dx"), serverOnly: a.includes("--server-only"), results: get("results", "results/results.sqlite"), notes: get("notes", ""), cooldownMs: quick ? 1000 : 5000,
   };
 }
 
@@ -66,7 +69,7 @@ const log = (...m: unknown[]) => console.log(new Date().toISOString().slice(11, 
 async function main() {
   const o = args();
   mkdirSync(join(ROOT, "results"), { recursive: true });
-  const db = new ResultsDb(join(ROOT, "results", "results.sqlite"));
+  const db = new ResultsDb(isAbsolute(o.results) ? o.results : join(ROOT, o.results));
   const combos = shuffle(o.backends.flatMap((b) => o.frontends.flatMap((f) => o.usecases.map((u) => ({ b, f, u })))), o.seed);
   const runId = db.startRun({
     seed: o.seed, order: combos, options: o,
@@ -106,8 +109,9 @@ async function main() {
       db.upsertParity({ run_id: runId, combo_id: cid, functional_ok: fn.ok ? 1 : 0, visual_diff_ratio: vis.worst, seo_ok: s.ok ? 1 : 0, parity_ok: fn.ok && vis.ok && s.ok ? 1 : 0, details_json: JSON.stringify({ functional: fn.failures, visual: vis.pages, seo: s.problems }) });
       if (!(fn.ok && vis.ok && s.ok)) log("  parity FAILED", JSON.stringify({ fn: fn.failures, vis: vis.pages.filter((p) => p.ratio > 0), seo: s.problems }));
 
-      sampler.phase = "page_load";
       const root = frontendRoot(f);
+      if (!o.serverOnly) {
+      sampler.phase = "page_load";
       for (const path of PAGES[u]) for (let i = 0; i < 3; i++) await measurePageLoad(browser, root + path, "desktop"); // warm-up
       for (const profile of o.profiles) for (const path of PAGES[u]) for (let i = 0; i < o.iters; i++) {
         const m = await measurePageLoad(browser, root + path, profile);
@@ -118,6 +122,7 @@ async function main() {
       for (const profile of o.profiles) for (let i = 0; i < o.flowIters; i++) {
         for (const st of await timedFlow(browser, f, u, profile))
           db.insertInteraction({ run_id: runId, combo_id: cid, profile, step: st.step, iter: i, duration_ms: Number.isNaN(st.ms) ? null : st.ms, ok: st.ok ? 1 : 0 });
+      }
       }
 
       for (const [phase, target, url] of [["load_test_page", "page", root + LOAD_PAGE[u]], ["load_test_api", "api", API + LOAD_API[u]]] as const) {

@@ -1,4 +1,4 @@
-export const CPP_PORT = 18080;
+export const CPP_PORT = Number(process.env.BS_PORT ?? 18080); // BS_PORT lets parallel checks use separate ports
 export const BUN_PORT = 13000;
 export const API = `http://127.0.0.1:${CPP_PORT}`; // IPv4: C++ servers bind 0.0.0.0 only
 export const CPP_FES = ["htmx", "alpine", "vanilla"] as const;
