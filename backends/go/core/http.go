@@ -79,8 +79,17 @@ var staticCache sync.Map // rel path → Resp
 
 // Init must be called once before serving.
 func Init(c Cli) {
+	InitData(c)
+	LoadTemplates()
+}
+
+// LoadTemplates parses the embedded html/template files (also used by corefast's reference tests).
+func LoadTemplates() { tmpl = template.Must(template.ParseFS(templateFS, "templates/*.tmpl")) }
+
+// InitData opens the DB pool and resolves the static dir; backends that render without html/template
+// (corefast) call it instead of Init.
+func InitData(c Cli) {
 	openDB(c.DB, c.Threads*2)
-	tmpl = template.Must(template.ParseFS(templateFS, "templates/*.tmpl"))
 	root, _ := filepath.Abs(c.Root)
 	staticDir = filepath.Join(root, "shared", "static")
 }

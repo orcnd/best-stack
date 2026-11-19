@@ -1,0 +1,42 @@
+package corefast
+
+templ layout(p Page) {
+	<!doctype html>
+	<html lang="tr">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ p.Title } · Best Stack</title>
+			<meta name="description" content={ p.Description }/>
+			<link rel="stylesheet" href="/static/app.css"/>
+			switch p.FE {
+				case "htmx":
+					<script src="/static/vendor/htmx.min.js" defer></script>
+					<script src="/static/js/htmx/htmx-config.js" defer></script>
+				case "alpine":
+					<script src={ "/static/js/alpine/" + p.Nav + ".js" } defer></script>
+					<script src="/static/vendor/alpine.min.js" defer></script>
+				case "vanilla":
+					<script type="module" src={ "/static/js/vanilla/" + p.Nav + ".js" }></script>
+			}
+		</head>
+		<body>
+			<header class="site-header" data-testid="site-header">
+				<a class="brand" href={ templ.SafeURL(p.Base + "/catalog") }>Best Stack</a>
+				<nav class="main-nav">
+					<a data-testid="nav-catalog" href={ templ.SafeURL(p.Base + "/catalog") } if p.Nav == "catalog" { class="active" }>Katalog</a>
+					<a data-testid="nav-kanban" href={ templ.SafeURL(p.Base + "/kanban/1") } if p.Nav == "kanban" { class="active" }>Kanban</a>
+					<a data-testid="nav-dashboard" href={ templ.SafeURL(p.Base + "/dashboard") } if p.Nav == "dashboard" { class="active" }>Dashboard</a>
+				</nav>
+				<a class="cart-link" href={ templ.SafeURL(p.Base + "/catalog/cart") }>Sepet @badge(p.FE, p.CartCount)</a>
+			</header>
+			<main class="container">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+templ badge(fe string, count int64) {
+	<span class="badge" id="cart-badge" data-testid="cart-badge" if fe == "alpine" { x-data x-text="$store.cart.count" }>{ itoa(count) }</span>
+}

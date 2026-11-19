@@ -1,0 +1,90 @@
+package corefast
+
+import "bestack/go/core"
+
+templ dashboardPage(p Page, vm DashboardVM) {
+	@layout(p) {
+		<div if p.FE == "alpine" { x-data="dashboard" }>
+			<div class="dash-head">
+				<h1>Analitik</h1>
+				<form
+					class="range-form"
+					method="get"
+					action={ templ.SafeURL(p.Base + "/dashboard") }
+					if p.FE == "htmx" {
+						hx-get={ p.Base + "/dashboard" }
+						hx-target="#dashboard-body"
+						hx-swap="outerHTML"
+						hx-push-url="true"
+						hx-trigger="submit, change"
+					}
+					if p.FE == "alpine" {
+						@submit.prevent="load()"
+					}
+				>
+					<select
+						name="range"
+						data-testid="range-select"
+						if p.FE == "alpine" {
+							x-model="range"
+							@change="load()"
+						}
+					>
+						for _, r := range ranges {
+							<option value={ itoa(r.v) } selected?={ r.v == vm.Range }>{ r.l }</option>
+						}
+					</select>
+					<button type="submit">Uygula</button>
+				</form>
+			</div>
+			@dashboardBody(p.FE, vm)
+		</div>
+	}
+}
+
+templ dashboardBody(fe string, vm DashboardVM) {
+	<section id="dashboard-body">
+		if fe == "alpine" {
+			<div x-show="!ready">
+				@dashboardStatic(vm)
+			</div>
+			@alpineDashboardClient()
+		} else {
+			@dashboardStatic(vm)
+		}
+	</section>
+}
+
+templ dashboardStatic(vm DashboardVM) {
+	<div class="kpis">
+		<div class="kpi"><span class="kpi-label">Olay</span><strong data-testid="kpi-events">{ core.FmtInt(vm.D.Kpis.Events) }</strong></div>
+		<div class="kpi"><span class="kpi-label">Tekil kullanıcı</span><strong data-testid="kpi-users">{ core.FmtInt(vm.D.Kpis.Users) }</strong></div>
+		<div class="kpi"><span class="kpi-label">Gelir</span><strong data-testid="kpi-revenue">{ core.FmtMoney(vm.D.Kpis.RevenueCents) }</strong></div>
+		<div class="kpi"><span class="kpi-label">Dönüşüm</span><strong data-testid="kpi-conversion">{ core.FmtPct(vm.D.Kpis.Conversion) }</strong></div>
+	</div>
+	<div class="panel"><h2>Günlük olaylar</h2><div class="chart" data-testid="chart-daily">@templ.Raw(vm.Chart)</div></div>
+	<div class="two-col">
+		<div class="panel">
+			<h2>Ülkeler</h2>
+			<table data-testid="country-table">
+				<thead><tr><th>Ülke</th><th>Olay</th></tr></thead>
+				<tbody>
+					for _, c := range vm.D.Countries {
+						<tr><td>{ c.Country }</td><td>{ core.FmtInt(c.Events) }</td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		<div class="panel">
+			<h2>En çok gelir getirenler</h2>
+			<table data-testid="top-items-table">
+				<thead><tr><th>Ürün</th><th>Satış</th><th>Gelir</th></tr></thead>
+				<tbody>
+					for _, it := range vm.D.TopItems {
+						<tr><td>{ it.Item }</td><td>{ core.FmtInt(it.Purchases) }</td><td>{ core.FmtMoney(it.RevenueCents) }</td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}

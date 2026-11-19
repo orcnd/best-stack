@@ -1,0 +1,290 @@
+package corefast
+
+import "bestack/go/core"
+
+templ catalogPage(p Page, vm CatalogVM) {
+	@layout(p) {
+		<div if p.FE == "alpine" { x-data="shop" }>
+			<h1>Ürün Kataloğu</h1>
+			<form
+				class="toolbar"
+				data-testid="search-form"
+				method="get"
+				action={ templ.SafeURL(p.Base + "/catalog") }
+				if p.FE == "htmx" {
+					hx-get={ p.Base + "/catalog" }
+					hx-target="#product-results"
+					hx-swap="outerHTML"
+					hx-push-url="true"
+					hx-sync="this:replace"
+				}
+				if p.FE == "alpine" {
+					@submit.prevent="search()"
+				}
+			>
+				<input
+					type="search"
+					name="q"
+					value={ vm.Q }
+					placeholder="Ürün ara…"
+					data-testid="search-input"
+					if p.FE == "htmx" {
+						hx-get={ p.Base + "/catalog" }
+						hx-trigger="input changed delay:250ms, search"
+						hx-include="closest form"
+					}
+					if p.FE == "alpine" {
+						x-model="q"
+						@input.debounce.250ms="search()"
+					}
+				/>
+				<select
+					name="cat"
+					data-testid="category-filter"
+					if p.FE == "htmx" {
+						hx-get={ p.Base + "/catalog" }
+						hx-trigger="change"
+						hx-include="closest form"
+					}
+					if p.FE == "alpine" {
+						x-model="cat"
+						@change="search()"
+					}
+				>
+					<option value="">Tüm kategoriler</option>
+					for _, c := range vm.Categories {
+						<option value={ c.Slug } selected?={ c.Slug == vm.Cat }>{ c.Name }</option>
+					}
+				</select>
+				<select
+					name="sort"
+					data-testid="sort-select"
+					if p.FE == "htmx" {
+						hx-get={ p.Base + "/catalog" }
+						hx-trigger="change"
+						hx-include="closest form"
+					}
+					if p.FE == "alpine" {
+						x-model="sort"
+						@change="search()"
+					}
+				>
+					<option value="" selected?={ vm.Sort == "" }>Varsayılan sıralama</option>
+					<option value="price_asc" selected?={ vm.Sort == "price_asc" }>Fiyat (artan)</option>
+					<option value="price_desc" selected?={ vm.Sort == "price_desc" }>Fiyat (azalan)</option>
+				</select>
+				<button type="submit">Ara</button>
+			</form>
+			@catalogResults(p.FE, p.Base, vm)
+		</div>
+	}
+}
+
+templ catalogResults(fe, base string, vm CatalogVM) {
+	<section
+		id="product-results"
+		if fe == "htmx" {
+			hx-target="#product-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+		}
+	>
+		if fe == "alpine" {
+			<div x-show="!ready">
+				@catalogStatic(fe, base, vm)
+			</div>
+			@alpineCatalogClient()
+		} else {
+			@catalogStatic(fe, base, vm)
+		}
+	</section>
+}
+
+templ catalogStatic(fe, base string, vm CatalogVM) {
+	<p class="result-count">{ vm.TotalFmt } ürün</p>
+	if len(vm.Items) > 0 {
+		<div class="grid" data-testid="product-grid">
+			for _, it := range vm.Items {
+				@productCard(fe, base, it)
+			}
+		</div>
+	} else {
+		<p class="empty" data-testid="empty-state">Sonuç bulunamadı.</p>
+	}
+	<nav class="pagination" data-testid="pagination">
+		if vm.PrevHref != "" {
+			<a
+				data-testid="page-prev"
+				href={ templ.SafeURL(vm.PrevHref) }
+				if fe == "htmx" {
+					hx-get={ vm.PrevHref }
+				}
+				if fe == "alpine" {
+					@click.prevent={ "go(" + itoa(vm.Page) + " - 1)" }
+				}
+			>‹ Önceki</a>
+		} else {
+			<span class="disabled">‹ Önceki</span>
+		}
+		<span class="page-info">Sayfa { itoa(vm.Page) } / { itoa(vm.Pages) }</span>
+		if vm.NextHref != "" {
+			<a
+				data-testid="page-next"
+				href={ templ.SafeURL(vm.NextHref) }
+				if fe == "htmx" {
+					hx-get={ vm.NextHref }
+				}
+				if fe == "alpine" {
+					@click.prevent={ "go(" + itoa(vm.Page) + " + 1)" }
+				}
+			>Sonraki ›</a>
+		} else {
+			<span class="disabled">Sonraki ›</span>
+		}
+	</nav>
+}
+
+templ productCard(fe, base string, it core.Product) {
+	<article class="product-card" data-testid="product-card">
+		<a class="thumb" href={ templ.SafeURL(base + "/catalog/p/" + itoa(it.ID)) }><img src={ it.Image } alt={ it.Name } width="320" height="240"/></a>
+		<h2 class="product-name" data-testid="product-name"><a href={ templ.SafeURL(base + "/catalog/p/" + itoa(it.ID)) }>{ it.Name }</a></h2>
+		<p class="product-category">{ it.Category }</p>
+		<p class="product-price" data-testid="product-price">{ core.FmtMoney(it.PriceCents) }</p>
+		<form
+			class="add-form"
+			method="post"
+			action={ templ.SafeURL(base + "/catalog/cart") }
+			if fe == "htmx" {
+				hx-post={ base + "/catalog/cart" }
+				hx-target="#cart-badge"
+				hx-swap="outerHTML"
+				hx-push-url="false"
+			}
+			if fe == "alpine" {
+				@submit.prevent={ "add(" + itoa(it.ID) + ")" }
+			}
+		>
+			<input type="hidden" name="product_id" value={ itoa(it.ID) }/>
+			<input type="hidden" name="qty" value="1"/>
+			<button type="submit" data-testid="add-to-cart">Sepete ekle</button>
+		</form>
+	</article>
+}
+
+templ productPage(p Page, it core.Product) {
+	@layout(p) {
+		<div if p.FE == "alpine" { x-data="shop" }>
+			<article class="product-detail" data-testid="product-detail">
+				<img src={ it.Image } alt={ it.Name } width="320" height="240"/>
+				<div class="info">
+					<h1>{ it.Name }</h1>
+					<p class="product-category">{ it.Category }</p>
+					<p class="product-price" data-testid="product-price">{ core.FmtMoney(it.PriceCents) }</p>
+					<p class="rating">{ core.FmtRating(it.Rating) }</p>
+					<p class="stock">Stok: { itoa(it.Stock) }</p>
+					<p class="description">{ it.Description }</p>
+					<form
+						class="add-form"
+						method="post"
+						action={ templ.SafeURL(p.Base + "/catalog/cart") }
+						if p.FE == "htmx" {
+							hx-post={ p.Base + "/catalog/cart" }
+							hx-target="#cart-badge"
+							hx-swap="outerHTML"
+						}
+						if p.FE == "alpine" {
+							@submit.prevent={ "add(" + itoa(it.ID) + ")" }
+						}
+					>
+						<input type="hidden" name="product_id" value={ itoa(it.ID) }/>
+						<input type="hidden" name="qty" value="1"/>
+						<button type="submit" data-testid="add-to-cart">Sepete ekle</button>
+					</form>
+				</div>
+			</article>
+			<a class="back" href={ templ.SafeURL(p.Base + "/catalog") }>‹ Kataloğa dön</a>
+		</div>
+	}
+}
+
+templ cartPage(p Page, c core.Cart) {
+	@layout(p) {
+		<div if p.FE == "alpine" { x-data="shop" }>
+			<h1>Sepet</h1>
+			@cartBody(p.FE, p.Base, c, false)
+		</div>
+	}
+}
+
+templ cartBody(fe, base string, c core.Cart, fragment bool) {
+	<section
+		id="cart"
+		if fe == "htmx" {
+			hx-target="#cart"
+			hx-swap="outerHTML"
+		}
+	>
+		if fe == "alpine" {
+			<div x-show="!ready">
+				@cartStatic(fe, base, c)
+			</div>
+			@alpineCartClient()
+		} else {
+			@cartStatic(fe, base, c)
+		}
+	</section>
+	if fragment && fe == "htmx" {
+		<span class="badge" id="cart-badge" data-testid="cart-badge" hx-swap-oob="true">{ itoa(c.Count) }</span>
+	}
+}
+
+templ cartStatic(fe, base string, c core.Cart) {
+	if len(c.Items) > 0 {
+		<table class="cart-table" data-testid="cart-table">
+			<thead><tr><th>Ürün</th><th>Fiyat</th><th>Adet</th><th>Tutar</th><th></th></tr></thead>
+			<tbody>
+				for _, it := range c.Items {
+					<tr data-testid="cart-row">
+						<td><a href={ templ.SafeURL(base + "/catalog/p/" + itoa(it.Product.ID)) }>{ it.Product.Name }</a></td>
+						<td>{ core.FmtMoney(it.Product.PriceCents) }</td>
+						<td>
+							<form
+								class="qty-form"
+								method="post"
+								action={ templ.SafeURL(base + "/catalog/cart/" + itoa(it.ID)) }
+								if fe == "htmx" {
+									hx-post={ base + "/catalog/cart/" + itoa(it.ID) }
+								}
+								if fe == "alpine" {
+									@submit.prevent={ "setQty(" + itoa(it.ID) + ", $event.target.elements.qty.value)" }
+								}
+							>
+								<input type="number" name="qty" min="0" max="99" value={ itoa(it.Qty) } data-testid="cart-qty"/>
+								<button type="submit" data-testid="cart-update">Güncelle</button>
+							</form>
+						</td>
+						<td>{ core.FmtMoney(it.Qty * it.Product.PriceCents) }</td>
+						<td>
+							<form
+								method="post"
+								action={ templ.SafeURL(base + "/catalog/cart/" + itoa(it.ID)) }
+								if fe == "htmx" {
+									hx-post={ base + "/catalog/cart/" + itoa(it.ID) }
+								}
+								if fe == "alpine" {
+									@submit.prevent={ "setQty(" + itoa(it.ID) + ", 0)" }
+								}
+							>
+								<input type="hidden" name="qty" value="0"/>
+								<button type="submit" data-testid="cart-remove">Kaldır</button>
+							</form>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		<p class="cart-total">Toplam: <strong data-testid="cart-total">{ core.FmtMoney(c.TotalCents) }</strong></p>
+	} else {
+		<p class="empty" data-testid="empty-state">Sepetiniz boş.</p>
+	}
+}
