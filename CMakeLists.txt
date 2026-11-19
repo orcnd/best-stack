@@ -10,7 +10,7 @@ endif()
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
 
-set(BS_BACKENDS "httplib;drogon;crow;oatpp;uwebsockets" CACHE STRING "Backends to build")
+set(BS_BACKENDS "httplib;drogon;crow;oatpp;uwebsockets;crow-opt;uwebsockets-opt" CACHE STRING "Backends to build")
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET ON)
@@ -52,6 +52,54 @@ add_library(bs_core STATIC ${BS_CORE_SOURCES})
 target_include_directories(bs_core PUBLIC ${CMAKE_SOURCE_DIR}/shared/cpp/include ${SQLITE3_INCLUDE_DIR})
 target_link_libraries(bs_core PUBLIC nlohmann_json::nlohmann_json pantor::inja ${SQLITE3_LIBRARY})
 
+# Run 3 "fast" core (crow-opt, uwebsockets-opt): same DB layer, glaze for JSON, HTML written directly into
+# one reserved buffer per response, mimalloc overriding malloc/new for the whole process.
+if(BS_BACKENDS MATCHES "-opt")
+  FetchContent_Declare(glaze
+    GIT_REPOSITORY https://github.com/stephenberry/glaze.git
+    GIT_TAG v9.1.0
+    GIT_SHALLOW TRUE
+    EXCLUDE_FROM_ALL)
+  set(glaze_DEVELOPER_MODE OFF CACHE BOOL "" FORCE)
+  set(glaze_ENABLE_FUZZING OFF CACHE BOOL "" FORCE)
+  set(MI_OVERRIDE ON CACHE BOOL "" FORCE)
+  set(MI_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+  set(MI_BUILD_STATIC ON CACHE BOOL "" FORCE)  # mimalloc's object-copy target depends on it
+  set(MI_BUILD_OBJECT ON CACHE BOOL "" FORCE)
+  set(MI_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(MI_INSTALL_TOPLEVEL OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(mimalloc
+    GIT_REPOSITORY https://github.com/microsoft/mimalloc.git
+    GIT_TAG v3.7.0
+    GIT_SHALLOW TRUE
+    EXCLUDE_FROM_ALL)
+  FetchContent_MakeAvailable(glaze mimalloc)
+
+  # Non-rendering pieces of bs_core are compiled unchanged (same SQL, same SQLite flags); rendering
+  # (view.cpp, render.cpp, json.cpp, handlers_*.cpp) is replaced by shared/cpp-fast.
+  file(GLOB BS_FAST_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/shared/cpp-fast/src/*.cpp)
+  add_library(bs_core_fast STATIC ${BS_FAST_SOURCES}
+    ${CMAKE_SOURCE_DIR}/shared/cpp/src/db.cpp
+    ${CMAKE_SOURCE_DIR}/shared/cpp/src/http.cpp
+    ${CMAKE_SOURCE_DIR}/shared/cpp/src/version.cpp)
+  target_include_directories(bs_core_fast PUBLIC ${CMAKE_SOURCE_DIR}/shared/cpp-fast/include
+    ${CMAKE_SOURCE_DIR}/shared/cpp/include ${SQLITE3_INCLUDE_DIR})
+  # nlohmann is header-only and only needed because http.cpp includes bs/render.hpp; nothing in the
+  # request path uses it.
+  # glaze is PRIVATE: only json.cpp uses it, and backends' main.cpp keep the C++20 build of the originals
+  # (glaze itself needs C++23).
+  target_link_libraries(bs_core_fast PRIVATE glaze::glaze)
+  target_link_libraries(bs_core_fast PUBLIC nlohmann_json::nlohmann_json ${SQLITE3_LIBRARY})
+  target_include_directories(bs_core_fast PUBLIC ${mimalloc_SOURCE_DIR}/include)
+  # The mimalloc object file (not the archive) so the malloc/new overrides are always linked in.
+  set(BS_MIMALLOC_OBJ $<TARGET_OBJECTS:mimalloc-obj>)
+
+  file(GLOB BS_FAST_TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/shared/cpp-fast/tests/*.cpp)
+  add_executable(bs_fast_tests ${BS_FAST_TEST_SOURCES} ${BS_MIMALLOC_OBJ})
+  target_link_libraries(bs_fast_tests PRIVATE bs_core_fast doctest::doctest)
+  target_compile_definitions(bs_fast_tests PRIVATE BS_ROOT="${CMAKE_SOURCE_DIR}")
+endif()
+
 enable_testing()
 file(GLOB BS_TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/shared/cpp/tests/*.cpp)
 add_executable(bs_tests ${BS_TEST_SOURCES})
@@ -59,6 +107,9 @@ target_link_libraries(bs_tests PRIVATE bs_core doctest::doctest)
 target_compile_definitions(bs_tests PRIVATE BS_ROOT="${CMAKE_SOURCE_DIR}")
 include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake)
 doctest_discover_tests(bs_tests)
+if(TARGET bs_fast_tests)
+  doctest_discover_tests(bs_fast_tests)
+endif()
 
 foreach(be IN LISTS BS_BACKENDS)
   if(EXISTS ${CMAKE_SOURCE_DIR}/backends/${be}/CMakeLists.txt)
