@@ -1,0 +1,49 @@
+<section id="dashboard-body">
+{% if fe == "alpine" %}
+<div x-show="!ready">
+{% endif %}
+  <div class="kpis">
+    <div class="kpi"><span class="kpi-label">Olay</span><strong data-testid="kpi-events">{{ Int(d.kpis.events) }}</strong></div>
+    <div class="kpi"><span class="kpi-label">Tekil kullanıcı</span><strong data-testid="kpi-users">{{ Int(d.kpis.users) }}</strong></div>
+    <div class="kpi"><span class="kpi-label">Gelir</span><strong data-testid="kpi-revenue">{{ Money(d.kpis.revenue_cents) }}</strong></div>
+    <div class="kpi"><span class="kpi-label">Dönüşüm</span><strong data-testid="kpi-conversion">{{ Pct(d.kpis.conversion) }}</strong></div>
+  </div>
+  <div class="panel"><h2>Günlük olaylar</h2><div class="chart" data-testid="chart-daily">{{ chart|safe }}</div></div>
+  <div class="two-col">
+    <div class="panel"><h2>Ülkeler</h2>
+      <table data-testid="country-table"><thead><tr><th>Ülke</th><th>Olay</th></tr></thead>
+        <tbody>
+{% for c in d.countries %}
+          <tr><td>{{ c.country }}</td><td>{{ Int(c.events) }}</td></tr>
+{% endfor %}
+        </tbody></table></div>
+    <div class="panel"><h2>En çok gelir getirenler</h2>
+      <table data-testid="top-items-table"><thead><tr><th>Ürün</th><th>Satış</th><th>Gelir</th></tr></thead>
+        <tbody>
+{% for it in d.top_items %}
+          <tr><td>{{ it.item }}</td><td>{{ Int(it.purchases) }}</td><td>{{ Money(it.revenue_cents) }}</td></tr>
+{% endfor %}
+        </tbody></table></div>
+  </div>
+{% if fe == "alpine" %}
+</div>
+<template x-if="ready"><div>
+  <div class="kpis">
+    <div class="kpi"><span class="kpi-label">Olay</span><strong data-testid="kpi-events" x-text="num(d.kpis.events)"></strong></div>
+    <div class="kpi"><span class="kpi-label">Tekil kullanıcı</span><strong data-testid="kpi-users" x-text="num(d.kpis.users)"></strong></div>
+    <div class="kpi"><span class="kpi-label">Gelir</span><strong data-testid="kpi-revenue" x-text="money(d.kpis.revenue_cents)"></strong></div>
+    <div class="kpi"><span class="kpi-label">Dönüşüm</span><strong data-testid="kpi-conversion" x-text="pct(d.kpis.conversion)"></strong></div>
+  </div>
+  <div class="panel"><h2>Günlük olaylar</h2><div class="chart" data-testid="chart-daily" x-html="chart(d.daily)"></div></div>
+  <div class="two-col">
+    <div class="panel"><h2>Ülkeler</h2>
+      <table data-testid="country-table"><thead><tr><th>Ülke</th><th>Olay</th></tr></thead>
+        <tbody><template x-for="c in d.countries" :key="c.country"><tr><td x-text="c.country"></td><td x-text="num(c.events)"></td></tr></template></tbody></table></div>
+    <div class="panel"><h2>En çok gelir getirenler</h2>
+      <table data-testid="top-items-table"><thead><tr><th>Ürün</th><th>Satış</th><th>Gelir</th></tr></thead>
+        <tbody><template x-for="it in d.top_items" :key="it.item"><tr><td x-text="it.item"></td><td x-text="num(it.purchases)"></td><td x-text="money(it.revenue_cents)"></td></tr></template></tbody></table></div>
+  </div>
+</div></template>
+{% endif %}
+</section>
+

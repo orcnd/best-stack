@@ -1,0 +1,8 @@
+# Byte-identical HTML with the minijinja/C++ path: &amp; &lt; &gt; &quot; &#39; (askama's default
+# Html escaper emits numeric entities like &#38;, which would differ byte-wise).
+[general]
+dirs = ["templates"]
+
+[[escaper]]
+path = "crate::escape::Html"
+extensions = ["html"]

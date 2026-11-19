@@ -1,0 +1,22 @@
+{% include "layout_top.html" %}
+<div{% if fe == "alpine" %} x-data="shop"{% endif %}>
+<h1>Ürün Kataloğu</h1>
+<form class="toolbar" data-testid="search-form" method="get" action="/{{ fe }}/catalog"{% if fe == "htmx" %} hx-get="/{{ fe }}/catalog" hx-target="#product-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="this:replace"{% endif %}{% if fe == "alpine" %} @submit.prevent="search()"{% endif %}>
+  <input type="search" name="q" value="{{ q }}" placeholder="Ürün ara…" data-testid="search-input"{% if fe == "htmx" %} hx-get="/{{ fe }}/catalog" hx-trigger="input changed delay:250ms, search" hx-include="closest form"{% endif %}{% if fe == "alpine" %} x-model="q" @input.debounce.250ms="search()"{% endif %}>
+  <select name="cat" data-testid="category-filter"{% if fe == "htmx" %} hx-get="/{{ fe }}/catalog" hx-trigger="change" hx-include="closest form"{% endif %}{% if fe == "alpine" %} x-model="cat" @change="search()"{% endif %}>
+    <option value="">Tüm kategoriler</option>
+{% for c in categories %}
+    <option value="{{ c.slug }}"{% if c.slug == cat %} selected{% endif %}>{{ c.name }}</option>
+{% endfor %}
+  </select>
+  <select name="sort" data-testid="sort-select"{% if fe == "htmx" %} hx-get="/{{ fe }}/catalog" hx-trigger="change" hx-include="closest form"{% endif %}{% if fe == "alpine" %} x-model="sort" @change="search()"{% endif %}>
+    <option value=""{% if sort == "" %} selected{% endif %}>Varsayılan sıralama</option>
+    <option value="price_asc"{% if sort == "price_asc" %} selected{% endif %}>Fiyat (artan)</option>
+    <option value="price_desc"{% if sort == "price_desc" %} selected{% endif %}>Fiyat (azalan)</option>
+  </select>
+  <button type="submit">Ara</button>
+</form>
+{% include "catalog_results.html" %}
+</div>
+{% include "layout_bottom.html" %}
+

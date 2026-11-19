@@ -1,0 +1,17 @@
+[package]
+name = "bs-core-fast"
+version = "0.1.0"
+edition = "2021"
+
+# Run-3 fast rendering path: askama (compile-time templates over typed structs) + mimalloc.
+# Reuses bs-core's db pool, SQL, HTTP parsing, chart math and formatting; only the
+# view/render layer and handlers differ. Separate crate (not a bs-core feature) so Cargo
+# feature unification cannot leak the fast path into the original axum/actix binaries.
+[dependencies]
+bs-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+askama = "0.16.1"
+mimalloc = "0.1.52"
+percent-encoding = "2"
+getrandom = "0.3"

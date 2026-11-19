@@ -1,5 +1,6 @@
 //! Axum backend: tokio multi-thread runtime (worker threads = --threads); handlers run on the
 //! blocking pool (spawn_blocking) because SQLite calls block. Routes come from bs_core::routes().
+//! Also built as bs-axum-opt, where `bs_core` is bs-core-fast (see ../axum-opt/Cargo.toml).
 use axum::body::{Body, Bytes};
 use axum::extract::{RawPathParams, RawQuery};
 use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri};
@@ -52,7 +53,7 @@ fn main() {
         }));
         app = app.fallback(|| async { to_response(Resp::new(404, "text/plain", "not found")) });
         let listener = tokio::net::TcpListener::bind(("0.0.0.0", cli.port)).await.unwrap();
-        println!("bs-axum listening on :{} (workers={})", cli.port, cli.threads);
+        println!("{} listening on :{} (workers={})", env!("CARGO_BIN_NAME"), cli.port, cli.threads);
         axum::serve(listener, app).await.unwrap();
     });
 }

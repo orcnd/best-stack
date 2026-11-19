@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "axum", "actix"]
+members = ["core", "axum", "actix", "core-fast", "axum-opt", "actix-opt"]
 
 [workspace.dependencies]
 bs-core = { path = "core" }

@@ -99,6 +99,8 @@ async function main() {
     }
   } finally {
     for (const p of procs) p.kill();
+    await new Promise((r) => setTimeout(r, 300));
+    for (const port of [pa, pb]) for (const s of ["", "-wal", "-shm"]) rmSync(join(ROOT, "data", `golden-${port}.sqlite${s}`), { force: true });
   }
   const html = requests.length - API_PATHS.length;
   console.log(`golden ${refName} → ${candName}: ${requests.length - fail}/${requests.length} equal (${exact} byte-identical non-JSON of ~${html})`);

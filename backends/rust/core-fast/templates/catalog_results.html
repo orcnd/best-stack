@@ -1,0 +1,70 @@
+<section id="product-results"{% if fe == "htmx" %} hx-target="#product-results" hx-swap="outerHTML" hx-push-url="true"{% endif %}>
+{% if fe == "alpine" %}
+<div x-show="!ready">
+{% endif %}
+  <p class="result-count">{{ Int(r.total) }} ürün</p>
+{% if !r.items.is_empty() %}
+  <div class="grid" data-testid="product-grid">
+{% for p in r.items %}
+    <article class="product-card" data-testid="product-card">
+      <a class="thumb" href="/{{ fe }}/catalog/p/{{ p.id }}"><img src="{{ p.image }}" alt="{{ p.name }}" width="320" height="240"></a>
+      <h2 class="product-name" data-testid="product-name"><a href="/{{ fe }}/catalog/p/{{ p.id }}">{{ p.name }}</a></h2>
+      <p class="product-category">{{ p.category }}</p>
+      <p class="product-price" data-testid="product-price">{{ Money(p.price_cents) }}</p>
+      <form class="add-form" method="post" action="/{{ fe }}/catalog/cart"{% if fe == "htmx" %} hx-post="/{{ fe }}/catalog/cart" hx-target="#cart-badge" hx-swap="outerHTML" hx-push-url="false"{% endif %}{% if fe == "alpine" %} @submit.prevent="add({{ p.id }})"{% endif %}>
+        <input type="hidden" name="product_id" value="{{ p.id }}">
+        <input type="hidden" name="qty" value="1">
+        <button type="submit" data-testid="add-to-cart">Sepete ekle</button>
+      </form>
+    </article>
+{% endfor %}
+  </div>
+{% else %}
+  <p class="empty" data-testid="empty-state">Sonuç bulunamadı.</p>
+{% endif %}
+  <nav class="pagination" data-testid="pagination">
+{% if !r.prev_href.is_empty() %}
+    <a data-testid="page-prev" href="{{ r.prev_href }}"{% if fe == "htmx" %} hx-get="{{ r.prev_href }}"{% endif %}{% if fe == "alpine" %} @click.prevent="go({{ r.page }} - 1)"{% endif %}>‹ Önceki</a>
+{% else %}
+    <span class="disabled">‹ Önceki</span>
+{% endif %}
+    <span class="page-info">Sayfa {{ r.page }} / {{ r.pages }}</span>
+{% if !r.next_href.is_empty() %}
+    <a data-testid="page-next" href="{{ r.next_href }}"{% if fe == "htmx" %} hx-get="{{ r.next_href }}"{% endif %}{% if fe == "alpine" %} @click.prevent="go({{ r.page }} + 1)"{% endif %}>Sonraki ›</a>
+{% else %}
+    <span class="disabled">Sonraki ›</span>
+{% endif %}
+  </nav>
+{% if fe == "alpine" %}
+</div>
+<template x-if="ready"><div>
+  <p class="result-count" x-text="num(total) + ' ürün'"></p>
+  <template x-if="items.length > 0">
+  <div class="grid" data-testid="product-grid">
+    <template x-for="p in items" :key="p.id">
+    <article class="product-card" data-testid="product-card">
+      <a class="thumb" :href="'/{{ fe }}/catalog/p/' + p.id"><img :src="p.image" :alt="p.name" width="320" height="240"></a>
+      <h2 class="product-name" data-testid="product-name"><a :href="'/{{ fe }}/catalog/p/' + p.id" x-text="p.name"></a></h2>
+      <p class="product-category" x-text="p.category"></p>
+      <p class="product-price" data-testid="product-price" x-text="money(p.price_cents)"></p>
+      <form class="add-form" method="post" action="/{{ fe }}/catalog/cart" @submit.prevent="add(p.id)">
+        <input type="hidden" name="product_id" :value="p.id">
+        <input type="hidden" name="qty" value="1">
+        <button type="submit" data-testid="add-to-cart">Sepete ekle</button>
+      </form>
+    </article>
+    </template>
+  </div>
+  </template>
+  <template x-if="items.length === 0"><p class="empty" data-testid="empty-state">Sonuç bulunamadı.</p></template>
+  <nav class="pagination" data-testid="pagination">
+    <template x-if="page > 1"><a data-testid="page-prev" :href="hrefFor(page - 1)" @click.prevent="go(page - 1)">‹ Önceki</a></template>
+    <template x-if="page <= 1"><span class="disabled">‹ Önceki</span></template>
+    <span class="page-info" x-text="'Sayfa ' + page + ' / ' + pages"></span>
+    <template x-if="page < pages"><a data-testid="page-next" :href="hrefFor(page + 1)" @click.prevent="go(page + 1)">Sonraki ›</a></template>
+    <template x-if="page >= pages"><span class="disabled">Sonraki ›</span></template>
+  </nav>
+</div></template>
+{% endif %}
+</section>
+

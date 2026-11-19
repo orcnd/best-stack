@@ -1,0 +1,15 @@
+[package]
+name = "bs-axum-opt"
+version = "0.1.0"
+edition = "2021"
+
+# Same adapter source as bs-axum (../axum/src/main.rs); `bs_core` is renamed to the fast core, so
+# the framework setup (threads, blocking pool, routing, static files) is byte-for-byte the original.
+[[bin]]
+name = "bs-axum-opt"
+path = "../axum/src/main.rs"
+
+[dependencies]
+bs-core = { path = "../core-fast", package = "bs-core-fast" }
+tokio.workspace = true
+axum = "0.8"

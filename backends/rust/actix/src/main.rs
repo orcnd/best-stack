@@ -1,5 +1,6 @@
 //! Actix-web backend: --threads workers (one event loop each); handlers run on actix's blocking
 //! pool via web::block because SQLite calls block. Routes come from bs_core::routes().
+//! Also built as bs-actix-opt, where `bs_core` is bs-core-fast (see ../actix-opt/Cargo.toml).
 use actix_web::http::{Method, StatusCode};
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use bs_core::{Req, Resp};
@@ -24,7 +25,7 @@ fn to_req(h: &HttpRequest, body: web::Bytes) -> Req {
 async fn main() -> std::io::Result<()> {
     let cli = bs_core::parse_cli();
     bs_core::init(&cli, (cli.threads * 2) as u32);
-    println!("bs-actix listening on :{} (workers={})", cli.port, cli.threads);
+    println!("{} listening on :{} (workers={})", env!("CARGO_BIN_NAME"), cli.port, cli.threads);
     HttpServer::new(|| {
         // Group by pattern so one resource answers every method of a path.
         let mut grouped: BTreeMap<&'static str, Vec<bs_core::Route>> = BTreeMap::new();

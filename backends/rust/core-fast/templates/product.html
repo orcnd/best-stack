@@ -1,0 +1,22 @@
+{% include "layout_top.html" %}
+<div{% if fe == "alpine" %} x-data="shop"{% endif %}>
+<article class="product-detail" data-testid="product-detail">
+  <img src="{{ product.image }}" alt="{{ product.name }}" width="320" height="240">
+  <div class="info">
+    <h1>{{ product.name }}</h1>
+    <p class="product-category">{{ product.category }}</p>
+    <p class="product-price" data-testid="product-price">{{ Money(product.price_cents) }}</p>
+    <p class="rating">{{ Rating(product.rating) }}</p>
+    <p class="stock">Stok: {{ product.stock }}</p>
+    <p class="description">{{ product.description }}</p>
+    <form class="add-form" method="post" action="/{{ fe }}/catalog/cart"{% if fe == "htmx" %} hx-post="/{{ fe }}/catalog/cart" hx-target="#cart-badge" hx-swap="outerHTML"{% endif %}{% if fe == "alpine" %} @submit.prevent="add({{ product.id }})"{% endif %}>
+      <input type="hidden" name="product_id" value="{{ product.id }}">
+      <input type="hidden" name="qty" value="1">
+      <button type="submit" data-testid="add-to-cart">Sepete ekle</button>
+    </form>
+  </div>
+</article>
+<a class="back" href="/{{ fe }}/catalog">‹ Kataloğa dön</a>
+</div>
+{% include "layout_bottom.html" %}
+

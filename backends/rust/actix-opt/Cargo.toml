@@ -1,0 +1,14 @@
+[package]
+name = "bs-actix-opt"
+version = "0.1.0"
+edition = "2021"
+
+# Same adapter source as bs-actix (../actix/src/main.rs); `bs_core` is renamed to the fast core, so
+# the framework setup (workers, blocking pool, routing, static files) is byte-for-byte the original.
+[[bin]]
+name = "bs-actix-opt"
+path = "../actix/src/main.rs"
+
+[dependencies]
+bs-core = { path = "../core-fast", package = "bs-core-fast" }
+actix-web = { version = "4", default-features = false, features = ["macros"] }
