@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Run-3 tables (server-only): python3 scripts/run3_report.py <results.sqlite> > tables.md"""
+"""Run-3 tables (server-only): python3 scripts/run3_report.py <results.sqlite> [more.sqlite ...] > tables.md
+
+With several result files (repeat passes), each load-test cell takes the best rps of all passes (with that
+pass's latencies); resources come from the same pass. Background noise only ever slows a run down."""
 import sqlite3
 import sys
 from statistics import mean
@@ -10,8 +13,10 @@ LIBS = {"C++": "glaze + mimalloc", "Rust": "askama + mimalloc", "Go": "templ + g
 UCS = ["catalog", "kanban", "dashboard"]
 UC_TR = {"catalog": "Katalog", "kanban": "Kanban", "dashboard": "Dashboard"}
 
-db = sqlite3.connect(sys.argv[1])
-run = db.execute("select run_id from env order by started_at desc limit 1").fetchone()[0]
+dbs = []
+for path in sys.argv[1:]:
+    d = sqlite3.connect(path)
+    dbs.append((d, d.execute("select run_id from env order by started_at desc limit 1").fetchone()[0]))
 
 
 def label(b):
@@ -20,15 +25,26 @@ def label(b):
 
 
 rows = {}
-for cid, b, u in db.execute("select combo_id, backend, usecase from combos"):
-    lt = {(t, c): (rps, p50, p95, err, tot) for t, c, rps, p50, p95, err, tot in db.execute(
-        "select target, concurrency, rps, p50, p95, errors, total from load_tests where run_id=? and combo_id=?", (run, cid))}
-    if not lt:
-        continue
-    mem = db.execute("select max(footprint_kb) from resources where run_id=? and combo_id=? and process_role='backend' and phase like 'load_test%'", (run, cid)).fetchone()[0]
-    cpu = db.execute("select avg(cpu_pct) from resources where run_id=? and combo_id=? and process_role='backend' and phase='load_test_page'", (run, cid)).fetchone()[0]
-    par = db.execute("select parity_ok from parity where run_id=? and combo_id=?", (run, cid)).fetchone()
-    rows[(b, u)] = dict(lt=lt, mem_mb=(mem or 0) / 1024, cpu=cpu or 0, parity=par[0] if par else None)
+for db, run in dbs:
+    for cid, b, u in db.execute("select combo_id, backend, usecase from combos"):
+        lt = {(t, c): (rps, p50, p95, err, tot) for t, c, rps, p50, p95, err, tot in db.execute(
+            "select target, concurrency, rps, p50, p95, errors, total from load_tests where run_id=? and combo_id=?", (run, cid))}
+        if not lt:
+            continue
+        mem = db.execute("select max(footprint_kb) from resources where run_id=? and combo_id=? and process_role='backend' and phase like 'load_test%'", (run, cid)).fetchone()[0]
+        cpu = db.execute("select avg(cpu_pct) from resources where run_id=? and combo_id=? and process_role='backend' and phase='load_test_page'", (run, cid)).fetchone()[0]
+        par = db.execute("select parity_ok from parity where run_id=? and combo_id=?", (run, cid)).fetchone()
+        new = dict(lt=lt, mem_mb=(mem or 0) / 1024, cpu=cpu or 0, parity=par[0] if par else None)
+        cur = rows.get((b, u))
+        if cur is None:
+            rows[(b, u)] = new
+            continue
+        for k, v in new["lt"].items():
+            if k not in cur["lt"] or v[0] > cur["lt"][k][0]:
+                cur["lt"][k] = v
+                if k == ("page", 64):
+                    cur["mem_mb"], cur["cpu"] = new["mem_mb"], new["cpu"]
+        cur["parity"] = min(x for x in (cur["parity"], new["parity"]) if x is not None) if new["parity"] is not None else cur["parity"]
 
 backends = sorted({b for b, _ in rows})
 g = lambda b, u, t, c, i: rows[(b, u)]["lt"].get((t, c), (None,) * 5)[i] if (b, u) in rows else None
@@ -36,7 +52,7 @@ f0 = lambda v: "—" if v is None else f"{v:,.0f}".replace(",", ".")
 f1 = lambda v: "—" if v is None else f"{v:.1f}".replace(".", ",")
 f2 = lambda v: "—" if v is None else f"{v:.2f}".replace(".", ",")
 
-print(f"Run `{run}`\n")
+print("Run: " + ", ".join(f"`{r}`" for _, r in dbs) + (" (her hücre: turların en iyisi)" if len(dbs) > 1 else "") + "\n")
 print("## Sayfa (HTML) req/s, 64 eşzamanlı istemci\n")
 print("| Backend | Dil | " + " | ".join(UC_TR[u] for u in UCS) + " | Katalog API | HTML/API |")
 print("|---|---|" + "---|" * (len(UCS) + 2))

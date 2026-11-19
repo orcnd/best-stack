@@ -73,3 +73,5 @@ dx_components` (see `bench/harness/schema.sql`). Scoring never mutates them; cha
 
 See [`docs/results.md`](docs/results.md) (run 2, 165 combinations) and
 [`docs/results-run1.md`](docs/results-run1.md) (run 1, C++ only, with the measurement issues that run 2 fixed).
+[`docs/results-backend-opt.md`](docs/results-backend-opt.md): run 3 (each language's two fastest paths: glaze+mimalloc,
+askama+mimalloc, templ+go-json vs Zig) and run 4 (dashboard SQLite bottleneck removed with trigger-maintained rollups).
