@@ -317,7 +317,7 @@ pub fn dashboard(a: A, range_days: i64) !Dashboard {
     const from = to - range_days * 86400;
     var k: Kpis = undefined;
     {
-        const s = try cn.prepare("SELECT count(*), count(DISTINCT user_id), COALESCE(sum(revenue_cents), 0), count(DISTINCT CASE WHEN type = 'purchase' THEN user_id END) FROM events WHERE ts >= ? AND ts < ?");
+        const s = try cn.prepare("WITH r(lo, hi) AS (SELECT ? / 86400, ? / 86400) SELECT (SELECT COALESCE(sum(events), 0) FROM ev_day WHERE day >= lo AND day < hi), (SELECT count(*) FROM ev_user WHERE last_day >= lo), (SELECT COALESCE(sum(revenue_cents), 0) FROM ev_day WHERE day >= lo AND day < hi), (SELECT count(*) FROM ev_user WHERE last_purchase_day >= lo) FROM r");
         defer s.done();
         s.bindInt(1, from);
         s.bindInt(2, to);
@@ -328,7 +328,7 @@ pub fn dashboard(a: A, range_days: i64) !Dashboard {
     const daily = try a.alloc(DayPoint, @intCast(range_days));
     for (daily, 0..) |*d, i| d.* = .{ .day = try isoDay(a, from + @as(i64, @intCast(i)) * 86400), .events = 0, .revenue_cents = 0 };
     {
-        const s = try cn.prepare("SELECT (ts - ?) / 86400 AS di, count(*), COALESCE(sum(revenue_cents), 0) FROM events WHERE ts >= ? AND ts < ? GROUP BY di");
+        const s = try cn.prepare("SELECT day - ? / 86400 AS di, events, revenue_cents FROM ev_day WHERE day >= ? / 86400 AND day < ? / 86400");
         defer s.done();
         s.bindInt(1, from);
         s.bindInt(2, from);
@@ -343,7 +343,7 @@ pub fn dashboard(a: A, range_days: i64) !Dashboard {
     }
     var countries: std.ArrayList(CountryRow) = .empty;
     {
-        const s = try cn.prepare("SELECT country, count(*) n FROM events WHERE ts >= ? AND ts < ? GROUP BY country ORDER BY n DESC, country LIMIT 8");
+        const s = try cn.prepare("SELECT country, sum(events) n FROM ev_country_day WHERE day >= ? / 86400 AND day < ? / 86400 GROUP BY country ORDER BY n DESC, country LIMIT 8");
         defer s.done();
         s.bindInt(1, from);
         s.bindInt(2, to);
@@ -351,7 +351,7 @@ pub fn dashboard(a: A, range_days: i64) !Dashboard {
     }
     var items: std.ArrayList(TopItem) = .empty;
     {
-        const s = try cn.prepare("SELECT item, sum(revenue_cents) r, count(*) FROM events WHERE type = 'purchase' AND ts >= ? AND ts < ? GROUP BY item ORDER BY r DESC, item LIMIT 10");
+        const s = try cn.prepare("SELECT item, sum(revenue_cents) r, sum(purchases) FROM ev_item_day WHERE day >= ? / 86400 AND day < ? / 86400 GROUP BY item ORDER BY r DESC, item LIMIT 10");
         defer s.done();
         s.bindInt(1, from);
         s.bindInt(2, to);

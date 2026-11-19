@@ -337,8 +337,7 @@ Dashboard Db::dashboard(int range_days) {
   long buyers = 0;
   {
     auto s = impl_->prep(
-        "SELECT count(*), count(DISTINCT user_id), COALESCE(sum(revenue_cents), 0), "
-        "count(DISTINCT CASE WHEN type = 'purchase' THEN user_id END) FROM events WHERE ts >= ? AND ts < ?");
+        "WITH r(lo, hi) AS (SELECT ? / 86400, ? / 86400) SELECT (SELECT COALESCE(sum(events), 0) FROM ev_day WHERE day >= lo AND day < hi), (SELECT count(*) FROM ev_user WHERE last_day >= lo), (SELECT COALESCE(sum(revenue_cents), 0) FROM ev_day WHERE day >= lo AND day < hi), (SELECT count(*) FROM ev_user WHERE last_purchase_day >= lo) FROM r");
     s.bind(1, from).bind(2, to);
     s.step();
     d.events = s.l(0);
@@ -352,8 +351,7 @@ Dashboard Db::dashboard(int range_days) {
   for (int i = 0; i < range_days; i++) d.daily[i].day = iso_day(from + i * 86400L);
   {
     auto s = impl_->prep(
-        "SELECT (ts - ?) / 86400 AS di, count(*), COALESCE(sum(revenue_cents), 0) FROM events "
-        "WHERE ts >= ? AND ts < ? GROUP BY di");
+        "SELECT day - ? / 86400 AS di, events, revenue_cents FROM ev_day WHERE day >= ? / 86400 AND day < ? / 86400");
     s.bind(1, from).bind(2, from).bind(3, to);
     while (s.step()) {
       int di = s.i(0);
@@ -365,15 +363,13 @@ Dashboard Db::dashboard(int range_days) {
   }
   {
     auto s = impl_->prep(
-        "SELECT country, count(*) n FROM events WHERE ts >= ? AND ts < ? GROUP BY country "
-        "ORDER BY n DESC, country LIMIT 8");
+        "SELECT country, sum(events) n FROM ev_country_day WHERE day >= ? / 86400 AND day < ? / 86400 GROUP BY country ORDER BY n DESC, country LIMIT 8");
     s.bind(1, from).bind(2, to);
     while (s.step()) d.countries.emplace_back(s.t(0), s.l(1));
   }
   {
     auto s = impl_->prep(
-        "SELECT item, sum(revenue_cents) r, count(*) FROM events WHERE type = 'purchase' AND ts >= ? AND ts < ? "
-        "GROUP BY item ORDER BY r DESC, item LIMIT 10");
+        "SELECT item, sum(revenue_cents) r, sum(purchases) FROM ev_item_day WHERE day >= ? / 86400 AND day < ? / 86400 GROUP BY item ORDER BY r DESC, item LIMIT 10");
     s.bind(1, from).bind(2, to);
     while (s.step()) d.top_items.push_back({s.t(0), s.l(1), s.l(2)});
   }

@@ -171,16 +171,16 @@ pub fn dashboard(c: &Connection, range_days: i64) -> Dashboard {
     let to = ANCHOR_TS;
     let from = to - range_days * 86400;
     let (events, users, revenue, buyers): (i64, i64, i64, i64) = c.prepare_cached(
-        "SELECT count(*), count(DISTINCT user_id), COALESCE(sum(revenue_cents), 0), count(DISTINCT CASE WHEN type = 'purchase' THEN user_id END) FROM events WHERE ts >= ? AND ts < ?").unwrap()
+        "WITH r(lo, hi) AS (SELECT ? / 86400, ? / 86400) SELECT (SELECT COALESCE(sum(events), 0) FROM ev_day WHERE day >= lo AND day < hi), (SELECT count(*) FROM ev_user WHERE last_day >= lo), (SELECT COALESCE(sum(revenue_cents), 0) FROM ev_day WHERE day >= lo AND day < hi), (SELECT count(*) FROM ev_user WHERE last_purchase_day >= lo) FROM r").unwrap()
         .query_row(params![from, to], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
     let mut daily: Vec<DayPoint> = (0..range_days).map(|i| DayPoint { day: iso_day(from + i * 86400), events: 0, revenue_cents: 0 }).collect();
-    let mut st = c.prepare_cached("SELECT (ts - ?) / 86400 AS di, count(*), COALESCE(sum(revenue_cents), 0) FROM events WHERE ts >= ? AND ts < ? GROUP BY di").unwrap();
+    let mut st = c.prepare_cached("SELECT day - ? / 86400 AS di, events, revenue_cents FROM ev_day WHERE day >= ? / 86400 AND day < ? / 86400").unwrap();
     for (di, n, rev) in st.query_map(params![from, from, to], |r| Ok((r.get::<_, i64>(0)?, r.get(1)?, r.get(2)?))).unwrap().filter_map(Result::ok) {
         if (0..range_days).contains(&di) { daily[di as usize].events = n; daily[di as usize].revenue_cents = rev; }
     }
-    let countries = c.prepare_cached("SELECT country, count(*) n FROM events WHERE ts >= ? AND ts < ? GROUP BY country ORDER BY n DESC, country LIMIT 8").unwrap()
+    let countries = c.prepare_cached("SELECT country, sum(events) n FROM ev_country_day WHERE day >= ? / 86400 AND day < ? / 86400 GROUP BY country ORDER BY n DESC, country LIMIT 8").unwrap()
         .query_map(params![from, to], |r| Ok(CountryRow { country: r.get(0)?, events: r.get(1)? })).unwrap().filter_map(Result::ok).collect();
-    let top_items = c.prepare_cached("SELECT item, sum(revenue_cents) r, count(*) FROM events WHERE type = 'purchase' AND ts >= ? AND ts < ? GROUP BY item ORDER BY r DESC, item LIMIT 10").unwrap()
+    let top_items = c.prepare_cached("SELECT item, sum(revenue_cents) r, sum(purchases) FROM ev_item_day WHERE day >= ? / 86400 AND day < ? / 86400 GROUP BY item ORDER BY r DESC, item LIMIT 10").unwrap()
         .query_map(params![from, to], |r| Ok(TopItem { item: r.get(0)?, revenue_cents: r.get(1)?, purchases: r.get(2)? })).unwrap().filter_map(Result::ok).collect();
     Dashboard {
         range_days,

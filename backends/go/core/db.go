@@ -279,7 +279,7 @@ func GetDashboard(rangeDays int64) Dashboard {
 	from := to - rangeDays*86400
 	d := Dashboard{RangeDays: rangeDays, Daily: make([]DayPoint, rangeDays), Countries: []CountryRow{}, TopItems: []TopItem{}}
 	var buyers int64
-	must(db.QueryRow("SELECT count(*), count(DISTINCT user_id), COALESCE(sum(revenue_cents), 0), count(DISTINCT CASE WHEN type = 'purchase' THEN user_id END) FROM events WHERE ts >= ? AND ts < ?", from, to).
+	must(db.QueryRow("WITH r(lo, hi) AS (SELECT ? / 86400, ? / 86400) SELECT (SELECT COALESCE(sum(events), 0) FROM ev_day WHERE day >= lo AND day < hi), (SELECT count(*) FROM ev_user WHERE last_day >= lo), (SELECT COALESCE(sum(revenue_cents), 0) FROM ev_day WHERE day >= lo AND day < hi), (SELECT count(*) FROM ev_user WHERE last_purchase_day >= lo) FROM r", from, to).
 		Scan(&d.Kpis.Events, &d.Kpis.Users, &d.Kpis.RevenueCents, &buyers))
 	if d.Kpis.Users > 0 {
 		d.Kpis.Conversion = float64(buyers) / float64(d.Kpis.Users)
@@ -287,7 +287,7 @@ func GetDashboard(rangeDays int64) Dashboard {
 	for i := range d.Daily {
 		d.Daily[i].Day = isoDay(from + int64(i)*86400)
 	}
-	rows, err := db.Query("SELECT (ts - ?) / 86400 AS di, count(*), COALESCE(sum(revenue_cents), 0) FROM events WHERE ts >= ? AND ts < ? GROUP BY di", from, from, to)
+	rows, err := db.Query("SELECT day - ? / 86400 AS di, events, revenue_cents FROM ev_day WHERE day >= ? / 86400 AND day < ? / 86400", from, from, to)
 	must(err)
 	for rows.Next() {
 		var di, n, rev int64
@@ -297,7 +297,7 @@ func GetDashboard(rangeDays int64) Dashboard {
 		}
 	}
 	rows.Close()
-	rows, err = db.Query("SELECT country, count(*) n FROM events WHERE ts >= ? AND ts < ? GROUP BY country ORDER BY n DESC, country LIMIT 8", from, to)
+	rows, err = db.Query("SELECT country, sum(events) n FROM ev_country_day WHERE day >= ? / 86400 AND day < ? / 86400 GROUP BY country ORDER BY n DESC, country LIMIT 8", from, to)
 	must(err)
 	for rows.Next() {
 		var c CountryRow
@@ -305,7 +305,7 @@ func GetDashboard(rangeDays int64) Dashboard {
 		d.Countries = append(d.Countries, c)
 	}
 	rows.Close()
-	rows, err = db.Query("SELECT item, sum(revenue_cents) r, count(*) FROM events WHERE type = 'purchase' AND ts >= ? AND ts < ? GROUP BY item ORDER BY r DESC, item LIMIT 10", from, to)
+	rows, err = db.Query("SELECT item, sum(revenue_cents) r, sum(purchases) FROM ev_item_day WHERE day >= ? / 86400 AND day < ? / 86400 GROUP BY item ORDER BY r DESC, item LIMIT 10", from, to)
 	must(err)
 	for rows.Next() {
 		var it TopItem
