@@ -11,7 +11,8 @@ const BUN = join(ROOT, "frontends", "runtime", "node_modules", ".bin", "bun");
 export interface DxRow { component: "backend" | "frontend" | "shared"; name: string; loc: number; deps: number; build_s: number | null; artifact_kb: number | null; details: unknown }
 
 function tokei(...paths: string[]): { code: number; byLang: Record<string, number> } {
-  const out = JSON.parse(execFileSync("tokei", ["--output", "json", ...paths], { cwd: ROOT, maxBuffer: 32 << 20 }).toString());
+  // Generated code (templ's *_templ.go) is not written by hand; its .templ source is counted instead.
+  const out = JSON.parse(execFileSync("tokei", ["--output", "json", "--exclude", "*_templ.go", ...paths], { cwd: ROOT, maxBuffer: 32 << 20 }).toString());
   const byLang: Record<string, number> = {};
   for (const [lang, v] of Object.entries(out as Record<string, { code: number }>)) if (lang !== "Total" && v.code) byLang[lang] = v.code;
   return { code: (out.Total as { code: number }).code, byLang };
@@ -35,6 +36,17 @@ interface BackendMeta { lang: "cpp" | "rust" | "go" | "zig"; paths: string[]; de
 const tmpDir = () => execFileSync("mktemp", ["-d"]).toString().trim();
 const CPP_CORE = ["shared/cpp/src", "shared/cpp/include", "shared/cpp/templates"];
 function meta(name: string): BackendMeta {
+  if (["crow-opt", "uwebsockets-opt"].includes(name))
+    return { lang: "cpp", paths: [`backends/${name.replace("-opt", "")}`, `backends/${name}`, "shared/cpp-fast", "shared/cpp/include", "shared/cpp/src/db.cpp", "shared/cpp/src/http.cpp", "shared/cpp/src/version.cpp"], deps: `backends/${name}/deps.txt`, clean: async () => {
+      await run("ninja", ["-C", "build", "-t", "clean", `bs-${name}`], { cwd: ROOT });
+      return timed("cmake", ["--build", "build", "--target", `bs-${name}`]);
+    } };
+  if (["axum-opt", "actix-opt"].includes(name))
+    return { lang: "rust", paths: [`backends/rust/${name.replace("-opt", "")}/src`, "backends/rust/core/src", "backends/rust/core-fast/src", "backends/rust/core-fast/templates"], deps: `backends/rust/${name}/deps.txt`,
+      clean: () => timed("cargo", ["build", "--release", "-p", `bs-${name}`, "--target-dir", tmpDir()], join(ROOT, "backends", "rust")) };
+  if (["gohttp-opt", "fiber-opt"].includes(name))
+    return { lang: "go", paths: [`backends/go/cmd/${name}`, "backends/go/corefast", "backends/go/core"], deps: `backends/go/cmd/${name}/deps.txt`,
+      clean: () => timed("go", ["build", "-a", "-o", join(tmpDir(), "bin"), `./cmd/${name}`], join(ROOT, "backends", "go")) };
   if (["drogon", "crow", "oatpp", "uwebsockets", "httplib"].includes(name))
     return { lang: "cpp", paths: [`backends/${name}`, ...CPP_CORE], deps: `backends/${name}/deps.txt`, clean: async () => {
       await run("ninja", ["-C", "build", "-t", "clean", `bs-${name}`], { cwd: ROOT });
