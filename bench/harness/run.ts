@@ -66,8 +66,21 @@ function provenance() {
 }
 const log = (...m: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...m);
 
+/** macOS throttles the CPU on battery and in Low Power Mode (run 3's first attempt was 2-3x slower that way). */
+function powerProblems(): string[] {
+  const out: string[] = [];
+  if (!(tryVersion("pmset", "-g", "batt") ?? "AC Power").includes("AC Power")) out.push("running on battery");
+  if (/lowpowermode\s+1/.test(execFileSync("pmset", ["-g"]).toString())) out.push("Low Power Mode is on");
+  return out;
+}
+
 async function main() {
   const o = args();
+  const power = powerProblems();
+  if (power.length && !process.argv.includes("--allow-throttled")) {
+    console.error(`refusing to measure: ${power.join(", ")} (plug in, turn Low Power Mode off, or pass --allow-throttled)`);
+    process.exit(3);
+  }
   mkdirSync(join(ROOT, "results"), { recursive: true });
   const db = new ResultsDb(isAbsolute(o.results) ? o.results : join(ROOT, o.results));
   const combos = shuffle(o.backends.flatMap((b) => o.frontends.flatMap((f) => o.usecases.map((u) => ({ b, f, u })))), o.seed);
