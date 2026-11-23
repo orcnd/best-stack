@@ -71,7 +71,30 @@ dx_components` (see `bench/harness/schema.sql`). Scoring never mutates them; cha
 
 ## Results
 
-See [`docs/results.md`](docs/results.md) (run 2, 165 combinations) and
-[`docs/results-run1.md`](docs/results-run1.md) (run 1, C++ only, with the measurement issues that run 2 fixed).
-[`docs/results-backend-opt.md`](docs/results-backend-opt.md): run 3 (each language's two fastest paths: glaze+mimalloc,
-askama+mimalloc, templ+go-json vs Zig) and run 4 (dashboard SQLite bottleneck removed with trigger-maintained rollups).
+### Optimized backends and the dashboard bottleneck (runs 3 and 4)
+
+Each language's two fastest paths: C++ with glaze + mimalloc, Rust with askama + mimalloc, Go with templ + go-json, against
+unchanged Zig. Server-only, htmx pages, 64 clients, Apple M2. Full report (Turkish): [`docs/results-backend-opt.md`](docs/results-backend-opt.md).
+
+- **Optimized C++ and Rust play in the same league as Zig.** The order within the top six flips between passes, so read it as a tie.
+- **The template / view-model layer was the main cost.** Removing it made the Kanban page 2.3–15× faster.
+- **Go gained 2.4–2.8× and is still behind.** Its SQLite driver (cgo) may explain part of that; not isolated.
+- **On the dashboard, schema beat language:** median 162 → 5,567 req/s from trigger-maintained rollups, versus a 1.6× spread between backends.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/charts/throughput-dark.svg"><img alt="Page throughput per backend, both passes" src="docs/charts/throughput-light.svg"></picture>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/charts/gains-dark.svg"><img alt="Optimized over original throughput" src="docs/charts/gains-light.svg"></picture>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/charts/dashboard-dark.svg"><img alt="Dashboard throughput at three schema stages" src="docs/charts/dashboard-light.svg"></picture>
+
+**How far to trust this:** differences of 2× or more that show up in both passes. Run 3 is noisy (71 of 84 measurements moved
+more than 20% between passes, cause not identified), there are only two passes, and the load generator shares the machine.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/charts/repeatability-dark.svg"><img alt="Pass 2 over pass 1 ratio per measurement" src="docs/charts/repeatability-light.svg"></picture>
+
+Regenerate the charts from the raw data in `docs/data` with `python3 scripts/charts.py`.
+
+### Earlier runs
+
+[`docs/results.md`](docs/results.md): run 2, 165 combinations. [`docs/results-run1.md`](docs/results-run1.md): run 1, C++ only,
+with the measurement issues that run 2 fixed. Runs 1–2 used the pre-rollup dashboard schema.
